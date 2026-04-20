@@ -6,11 +6,11 @@
 
 ## 포함된 프리셋
 
-- `dev.psd1`: 개발 친화적인 작은 `web-platform` 기준선
-- `staging.psd1`: 사전 운영 검증용으로 조금 더 넓은 `shared-services` 기준선
+- `dev.psd1`: 개발 친화적인 `web-platform` 기준선
+- `staging.psd1`: 사전 운영 검증용 `shared-services` 기준선
 - `prod.psd1`: 운영 지향의 `shared-services` 기준선
 
-## 자주 쓰는 키
+## 프리셋이 주로 제어하는 값
 
 - `ValuesFile`: 기본 값 파일 경로
 - `DockerRegistry`: 사설 이미지를 도입했을 때만 쓰는 선택형 레지스트리 호스트
@@ -24,4 +24,20 @@
 - `PromotionExtractPath`: 번들 승격 워크플로우의 기본 압축 해제 경로
 - `RenderedPath`: 저장소 검증 워크플로우에서 사용할 수 있는 선택형 렌더링 번들 경로
 
-스크립트에서 명시적으로 넘긴 인자는 프리셋 값을 계속 덮어쓰므로, 프리셋은 강제 규칙이라기보다 공통 기본값 역할을 합니다.
+## 프리셋 사용 예시
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
+```
+
+프리셋은 강제 규칙이라기보다 공통 기본값에 가깝습니다. 그래서 명시적으로 인자를 더 주면 프리셋 값을 계속 덮어쓸 수 있습니다.
+
+즉 `dev` 를 시작점으로 삼은 뒤에도 아래 항목을 추가 인자로 바꿀 수 있습니다.
+
+- 프로필
+- 애플리케이션 목록
+- 데이터 서비스 목록
+- 출력 경로
+
+프리셋 파일을 바로 고치기 전에 명령줄에서 먼저 실험해보기에 좋습니다.
