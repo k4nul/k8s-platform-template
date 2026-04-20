@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memcached
+  namespace: platform
+  labels:
+    app: memcached
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: memcached
+  template:
+    metadata:
+      labels:
+        app: memcached
+    spec:
+      containers:
+      - name: memcached
+        image: memcached:1.6-alpine
+        imagePullPolicy: IfNotPresent
+        args:
+        - -m
+        - "256"
+        - -I
+        - 2m
+        - -c
+        - "1024"
+        - -o
+        - modern
+        ports:
+        - name: memcached
+          containerPort: 11211
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: memcached
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        readinessProbe:
+          tcpSocket:
+            port: memcached
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi

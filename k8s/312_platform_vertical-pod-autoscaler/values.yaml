@@ -1,0 +1,18 @@
+rbac:
+  create: true
+
+admissionController:
+  enabled: true
+  replicas: 1
+  registerWebhook: false
+  tls:
+    create: true
+    secretName: vpa-tls-certs
+
+recommender:
+  enabled: true
+  replicas: 1
+
+updater:
+  enabled: true
+  replicas: 1

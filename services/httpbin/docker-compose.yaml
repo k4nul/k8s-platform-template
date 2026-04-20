@@ -1,0 +1,7 @@
+version: '3'
+services:
+  httpbin:
+    image: mccutchen/go-httpbin:v2.15.0
+    ports:
+      - ${HTTPBIN_HOST_PORT:?HTTPBIN_HOST_PORT must be set}:8080
+    restart: always

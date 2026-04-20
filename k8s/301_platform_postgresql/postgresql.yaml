@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: platform
+  labels:
+    app: postgresql
+spec:
+  serviceName: postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgresql
+  template:
+    metadata:
+      labels:
+        app: postgresql
+    spec:
+      containers:
+      - name: postgresql
+        image: postgres:16-alpine
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-sec
+              key: POSTGRES_DB
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-sec
+              key: POSTGRES_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql-sec
+              key: POSTGRES_PASSWORD
+        ports:
+        - containerPort: 5432
+          name: postgresql
+          protocol: TCP
+        livenessProbe:
+          tcpSocket:
+            port: postgresql
+          initialDelaySeconds: 20
+          periodSeconds: 20
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: postgresql-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
+      name: postgresql-data
+      labels:
+        app: postgresql
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+      storageClassName: openebs-hostpath

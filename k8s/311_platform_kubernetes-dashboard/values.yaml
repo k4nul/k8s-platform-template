@@ -1,0 +1,25 @@
+app:
+  mode: dashboard
+
+ingress:
+  enabled: true
+  hosts:
+  - __DASHBOARD_HOST__
+  ingressClassName: ""
+  useDefaultAnnotations: false
+  tls:
+    enabled: true
+    secretName: __DASHBOARD_TLS_SECRET__
+
+metrics-server:
+  enabled: false
+
+cert-manager:
+  enabled: false
+
+nginx:
+  enabled: false
+
+kong:
+  proxy:
+    type: ClusterIP
