@@ -1,0 +1,36 @@
+clusterDomain: cluster.local
+
+nginxGateway:
+  gatewayClassName: nginx
+  replicas: 2
+  config:
+    logging:
+      level: info
+  productTelemetry:
+    enable: false
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enable: false
+
+nginx:
+  kind: deployment
+  replicas: 2
+  autoscaling:
+    enable: false
+  container:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+  config:
+    logging:
+      errorLevel: notice

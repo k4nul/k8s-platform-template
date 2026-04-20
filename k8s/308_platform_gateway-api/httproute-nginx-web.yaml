@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nginx-web
+  namespace: platform
+spec:
+  parentRefs:
+  - name: platform-gateway
+  hostnames:
+  - __NGINX_WEB_HOST__
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: nginx-web
+      port: 80

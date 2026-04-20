@@ -1,0 +1,7 @@
+version: '3'
+services:
+  whoami:
+    image: traefik/whoami:v1.10.4
+    ports:
+      - ${WHOAMI_HOST_PORT:?WHOAMI_HOST_PORT must be set}:80
+    restart: always

@@ -1,0 +1,9 @@
+version: '3'
+services:
+  nginx-web:
+    image: nginx:1.28-alpine
+    ports:
+      - ${NGINX_WEB_HOST_PORT:?NGINX_WEB_HOST_PORT must be set}:80
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+    restart: always

@@ -1,0 +1,24 @@
+provider:
+  name: "__EXTERNAL_DNS_PROVIDER__"
+
+sources:
+- service
+- ingress
+
+policy: upsert-only
+registry: txt
+txtOwnerId: __EXTERNAL_DNS_OWNER_ID__
+domainFilters:
+- __BASE_DOMAIN__
+
+interval: 1m
+logLevel: info
+namespaced: true
+
+serviceAccount:
+  create: true
+  name: external-dns
+
+env: []
+
+extraArgs: {}
