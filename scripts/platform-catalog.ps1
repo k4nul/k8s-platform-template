@@ -76,13 +76,6 @@ function Get-PlatformK8sComponentCatalog {
             Description = "Persistent volume claims for shared and database storage."
             Notes = ""
         }
-        "300_jenkins" = @{
-            Delivery = "raw"
-            PhaseId = "phase-c"
-            PhaseName = "Phase C: Shared Services"
-            Description = "Jenkins deployment and service resources."
-            Notes = ""
-        }
         "301_platform_mysql" = @{
             Delivery = "raw"
             PhaseId = "phase-c"
@@ -290,10 +283,6 @@ function Resolve-PlatformSelection {
         if ($applicationDefinition.ServiceDirectory) {
             $serviceDirectories.Add($applicationDefinition.ServiceDirectory) | Out-Null
         }
-    }
-
-    if ($IncludeJenkins) {
-        $k8sDirectories.Add("300_jenkins") | Out-Null
     }
 
     return [PSCustomObject]@{

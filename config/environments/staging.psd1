@@ -12,7 +12,6 @@
         "postgresql",
         "redis"
     )
-    IncludeJenkins = $false
     OutputPath = "out\delivery\staging"
     ArchivePath = "out\delivery\staging.zip"
     PromotionExtractPath = "out\promotion\staging"

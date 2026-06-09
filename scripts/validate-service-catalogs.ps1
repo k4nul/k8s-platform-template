@@ -30,7 +30,6 @@ $catalogFiles = @(
     @{ Name = "config/service-builds.psd1"; Path = Join-Path $root "config\service-builds.psd1" },
     @{ Name = "config/service-config-artifacts.psd1"; Path = Join-Path $root "config\service-config-artifacts.psd1" },
     @{ Name = "config/service-dependencies.psd1"; Path = Join-Path $root "config\service-dependencies.psd1" },
-    @{ Name = "config/service-pipelines.psd1"; Path = Join-Path $root "config\service-pipelines.psd1" },
     @{ Name = "config/service-runtime-bindings.psd1"; Path = Join-Path $root "config\service-runtime-bindings.psd1" }
 )
 
@@ -51,26 +50,8 @@ foreach ($catalogFile in $catalogFiles) {
     }
 }
 
-$pipelineCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-pipelines.psd1")
 $runtimeCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-runtime-bindings.psd1")
 $dependencyCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-dependencies.psd1")
-
-$knownJenkinsVariables = @(
-    "DOCKER_REGISTRY",
-    "MODE",
-    "BUILD_PROJECT",
-    "CACHE",
-    "SSHKEY_FILTER",
-    "SOURCE_PROJECT"
-)
-
-foreach ($service in @($pipelineCatalog.Services)) {
-    foreach ($variableName in @($service.OptionalEnvVars)) {
-        if ($knownJenkinsVariables -notcontains $variableName) {
-            $errors.Add("Pipeline catalog for $($service.Name) references an unknown Jenkins variable: $variableName") | Out-Null
-        }
-    }
-}
 
 $runtimeVariableNames = @($runtimeCatalog.Variables.Keys | Sort-Object)
 foreach ($service in @($runtimeCatalog.Services)) {

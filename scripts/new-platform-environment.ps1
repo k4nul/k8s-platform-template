@@ -33,13 +33,12 @@ Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Profile" -Target ([ref]$Profile)
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Applications" -Target ([ref]$Applications) -AsList
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DataServices" -Target ([ref]$DataServices) -AsList
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "IncludeJenkins" -Target ([ref]$IncludeJenkins) -AsSwitch
 
 if (-not $BaseValuesFile) {
     $BaseValuesFile = Join-Path $PSScriptRoot "..\config\platform-values.env.example"
 }
 
-$selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
+$selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices
 $targetPath = if ($ValuesFilePath) {
     [System.IO.Path]::GetFullPath($ValuesFilePath)
 }
@@ -74,7 +73,6 @@ $header = @(
     "# Description: $($selection.Description)",
     "# Applications: $applicationsText",
     "# Data services: $dataServicesText",
-    "# Include Jenkins: $([bool]$IncludeJenkins)",
     "#",
     "# Preview the selected layout with:",
     "# .\scripts\show-platform-plan.ps1 -Profile $($selection.Profile) -Applications $($Applications -join ',') -DataServices $($DataServices -join ',')",
@@ -89,7 +87,6 @@ $valuesBody = & $platformValuesPlanScript `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
-    -IncludeJenkins:$IncludeJenkins `
     -ValuesFile $baseValuesPath `
     -Format env
 

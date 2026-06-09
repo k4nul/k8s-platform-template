@@ -185,68 +185,22 @@ $effectiveDataServices = Get-EffectiveDataServices -K8sDirectories $effectiveK8s
 $valuesFileKeys = Get-EnvFileKeys -Path $resolvedValuesFile
 $runtimeEnvKeys = Get-EnvFileKeys -Path $resolvedRuntimeEnvFile
 
-$pipelineCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-pipelines.psd1")
 $runtimeCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-runtime-bindings.psd1")
 $configCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-config-artifacts.psd1")
 $dependencyCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-dependencies.psd1")
 
-$pipelineMap = Get-CatalogMap -Services $pipelineCatalog.Services
 $runtimeMap = Get-CatalogMap -Services $runtimeCatalog.Services
 $configMap = Get-CatalogMap -Services $configCatalog.Services
 $dependencyMap = Get-CatalogMap -Services $dependencyCatalog.Services
-
-$jenkinsVariableOrder = @(
-    "DOCKER_REGISTRY",
-    "MODE",
-    "BUILD_PROJECT",
-    "CACHE",
-    "SSHKEY_FILTER",
-    "SOURCE_PROJECT"
-)
-$jenkinsVariableCatalog = [ordered]@{
-    "DOCKER_REGISTRY" = "Required registry host for Jenkins image push steps and compose-based update flows."
-    "MODE" = "Required for mode-aware services that publish test or release tags and rename mode-specific config files."
-    "BUILD_PROJECT" = "Optional override for the upstream artifact job when it differs from the Jenkins job name."
-    "CACHE" = "Optional toggle that allows cached Docker builds on services that support it."
-    "SSHKEY_FILTER" = "Optional override for certificate or SSH artifact filters used with the sshkey job."
-    "SOURCE_PROJECT" = "Optional variable reserved for teams that later add custom bootstrap or packaging jobs."
-}
-
-$jenkinsVariableMap = [ordered]@{}
-foreach ($variableName in $jenkinsVariableOrder) {
-    $jenkinsVariableMap[$variableName] = [ordered]@{
-        Name = $variableName
-        Description = $jenkinsVariableCatalog[$variableName]
-        RequiredBy = New-Object System.Collections.Generic.List[string]
-        OptionalBy = New-Object System.Collections.Generic.List[string]
-    }
-}
 
 $platformValueMap = [ordered]@{}
 $serviceRecords = @()
 
 foreach ($serviceName in $effectiveServiceDirectories) {
-    $pipeline = if ($pipelineMap.Contains($serviceName)) { $pipelineMap[$serviceName] } else { $null }
     $runtime = if ($runtimeMap.Contains($serviceName)) { $runtimeMap[$serviceName] } else { $null }
     $config = if ($configMap.Contains($serviceName)) { $configMap[$serviceName] } else { $null }
     $dependency = if ($dependencyMap.Contains($serviceName)) { $dependencyMap[$serviceName] } else { $null }
 
-    $requiredJenkinsVars = New-Object System.Collections.Generic.List[string]
-    if ($null -ne $pipeline) {
-        if ($pipeline.PSObject.Properties.Name -contains "RequiresRegistry" -and [bool]$pipeline.RequiresRegistry) {
-            $requiredJenkinsVars.Add("DOCKER_REGISTRY") | Out-Null
-        }
-        if ([bool]$pipeline.RequiresMode) {
-            $requiredJenkinsVars.Add("MODE") | Out-Null
-        }
-        foreach ($variableName in @(Get-ObjectPropertyArray -Object $pipeline -PropertyName "RequiredEnvVars")) {
-            if ($requiredJenkinsVars -notcontains $variableName) {
-                $requiredJenkinsVars.Add($variableName) | Out-Null
-            }
-        }
-    }
-
-    $optionalJenkinsVars = @(Get-ObjectPropertyArray -Object $pipeline -PropertyName "OptionalEnvVars" | Sort-Object -Unique)
     $composeRequiredEnvVars = @(Get-ObjectPropertyArray -Object $runtime -PropertyName "RequiredEnvVars" | Sort-Object -Unique)
     $configArtifacts = @(Get-ObjectPropertyArray -Object $config -PropertyName "ConfigArtifacts")
     $platformValueKeys = @(
@@ -265,18 +219,6 @@ foreach ($serviceName in $effectiveServiceDirectories) {
     $relatedApplications = if ($null -ne $dependency) { @($dependency.RelatedApplications | Sort-Object -Unique) } else { @() }
     $selectedRelatedApplications = @($relatedApplications | Where-Object { $effectiveServiceDirectories -contains $_ })
     $configArtifactFiles = @($configArtifacts | ForEach-Object { $_.SourceFile } | Sort-Object -Unique)
-
-    foreach ($variableName in @($requiredJenkinsVars | Sort-Object -Unique)) {
-        if ($jenkinsVariableMap.Contains($variableName) -and $jenkinsVariableMap[$variableName].RequiredBy -notcontains $serviceName) {
-            $jenkinsVariableMap[$variableName].RequiredBy.Add($serviceName) | Out-Null
-        }
-    }
-
-    foreach ($variableName in @($optionalJenkinsVars)) {
-        if ($jenkinsVariableMap.Contains($variableName) -and $jenkinsVariableMap[$variableName].OptionalBy -notcontains $serviceName) {
-            $jenkinsVariableMap[$variableName].OptionalBy.Add($serviceName) | Out-Null
-        }
-    }
 
     foreach ($artifact in $configArtifacts) {
         foreach ($token in @($artifact.PlaceholderTokens | Sort-Object -Unique)) {
@@ -302,8 +244,6 @@ foreach ($serviceName in $effectiveServiceDirectories) {
 
     $serviceRecords += [PSCustomObject]@{
         Name = $serviceName
-        JenkinsRequiredEnvVars = @($requiredJenkinsVars | Sort-Object -Unique)
-        JenkinsOptionalEnvVars = @($optionalJenkinsVars)
         ComposeRequiredEnvVars = @($composeRequiredEnvVars)
         MissingComposeEnvVars = @($missingComposeEnvVars)
         ConfigArtifactFiles = @($configArtifactFiles)
@@ -317,24 +257,8 @@ foreach ($serviceName in $effectiveServiceDirectories) {
         SelectedCompatibleDataServices = @($selectedCompatibleDataServices)
         RelatedApplications = @($relatedApplications)
         SelectedRelatedApplications = @($selectedRelatedApplications)
-        PipelineNotes = Get-ObjectPropertyString -Object $pipeline -PropertyName "Notes"
         RuntimeNotes = Get-ObjectPropertyString -Object $runtime -PropertyName "Notes"
         DependencyNotes = Get-ObjectPropertyString -Object $dependency -PropertyName "Notes"
-    }
-}
-
-$jenkinsVariableEntries = @()
-foreach ($variableName in $jenkinsVariableOrder) {
-    $entry = $jenkinsVariableMap[$variableName]
-    if ($entry.RequiredBy.Count -eq 0 -and $entry.OptionalBy.Count -eq 0) {
-        continue
-    }
-
-    $jenkinsVariableEntries += [PSCustomObject]@{
-        Name = $entry.Name
-        Description = $entry.Description
-        RequiredBy = @($entry.RequiredBy | Sort-Object)
-        OptionalBy = @($entry.OptionalBy | Sort-Object)
     }
 }
 
@@ -389,11 +313,9 @@ switch ($Format) {
             Applications = @($selection.Applications)
             ExplicitDataServices = @($selection.DataServices)
             EffectiveDataServices = @($effectiveDataServices)
-            IncludeJenkins = [bool]$IncludeJenkins
             ValuesFile = $resolvedValuesFile
             RuntimeEnvFile = $resolvedRuntimeEnvFile
             ServiceDirectories = @($effectiveServiceDirectories)
-            JenkinsVariables = @($jenkinsVariableEntries)
             ComposeVariables = @($composeVariableEntries)
             PlatformValues = @($platformValueEntries)
             Services = @($serviceRecords)
@@ -411,24 +333,12 @@ switch ($Format) {
             ("- Explicit data services: " + $explicitDataServicesText),
             ("- Effective in-cluster data services: " + $effectiveDataServicesText),
             ("- Selected services: " + $selectedServicesText),
-            ("- Jenkins environment variables: " + [string]$jenkinsVariableEntries.Count),
             ("- Compose environment variables: " + [string]$composeVariableEntries.Count),
             ("- Platform value keys: " + [string]$platformValueEntries.Count),
             ("- Values file: " + $resolvedValuesFile),
             ("- Runtime env file: " + $resolvedRuntimeEnvFile),
             ""
         )
-
-        if ($jenkinsVariableEntries.Count -gt 0) {
-            $lines += "## Jenkins Environment Variables"
-            $lines += ""
-            foreach ($variable in $jenkinsVariableEntries) {
-                $lines += ("- " + $variable.Name + ": " + $variable.Description)
-                $lines += ("  Required by: " + (Get-TextList -Values $variable.RequiredBy))
-                $lines += ("  Optional for: " + (Get-TextList -Values $variable.OptionalBy))
-            }
-            $lines += ""
-        }
 
         if ($composeVariableEntries.Count -gt 0) {
             $lines += "## Compose Environment Variables"
@@ -457,13 +367,10 @@ switch ($Format) {
             $lines += "## Service Input Details"
             $lines += ""
             foreach ($service in $serviceRecords) {
-                $pipelineNotes = Get-ValueOrNone -Value $service.PipelineNotes
                 $runtimeNotes = Get-ValueOrNone -Value $service.RuntimeNotes
                 $dependencyNotes = Get-ValueOrNone -Value $service.DependencyNotes
                 $lines += ("### " + $service.Name)
                 $lines += ""
-                $lines += ("- Jenkins required env vars: " + (Get-TextList -Values $service.JenkinsRequiredEnvVars))
-                $lines += ("- Jenkins optional env vars: " + (Get-TextList -Values $service.JenkinsOptionalEnvVars))
                 $lines += ("- Compose env vars: " + (Get-TextList -Values $service.ComposeRequiredEnvVars))
                 $lines += ("- Missing compose env vars in runtime env file: " + (Get-TextList -Values $service.MissingComposeEnvVars))
                 $lines += ("- Config artifacts: " + (Get-TextList -Values $service.ConfigArtifactFiles))
@@ -477,7 +384,6 @@ switch ($Format) {
                 $lines += ("- Selected compatible in-cluster data services: " + (Get-TextList -Values $service.SelectedCompatibleDataServices))
                 $lines += ("- Related applications: " + (Get-TextList -Values $service.RelatedApplications))
                 $lines += ("- Selected related applications: " + (Get-TextList -Values $service.SelectedRelatedApplications))
-                $lines += ("- Pipeline notes: " + $pipelineNotes)
                 $lines += ("- Runtime notes: " + $runtimeNotes)
                 $lines += ("- Dependency notes: " + $dependencyNotes)
                 $lines += ""
@@ -501,16 +407,6 @@ switch ($Format) {
             ""
         )
 
-        if ($jenkinsVariableEntries.Count -gt 0) {
-            $lines += "Jenkins environment variables"
-            foreach ($variable in $jenkinsVariableEntries) {
-                $lines += ("- " + $variable.Name + ": " + $variable.Description)
-                $lines += ("  Required by: " + (Get-TextList -Values $variable.RequiredBy))
-                $lines += ("  Optional for: " + (Get-TextList -Values $variable.OptionalBy))
-            }
-            $lines += ""
-        }
-
         if ($composeVariableEntries.Count -gt 0) {
             $lines += "Compose environment variables"
             foreach ($variable in $composeVariableEntries) {
@@ -533,12 +429,9 @@ switch ($Format) {
         }
 
         foreach ($service in $serviceRecords) {
-            $pipelineNotes = Get-ValueOrNone -Value $service.PipelineNotes
             $runtimeNotes = Get-ValueOrNone -Value $service.RuntimeNotes
             $dependencyNotes = Get-ValueOrNone -Value $service.DependencyNotes
             $lines += $service.Name
-            $lines += ("  Jenkins required env vars: " + (Get-TextList -Values $service.JenkinsRequiredEnvVars))
-            $lines += ("  Jenkins optional env vars: " + (Get-TextList -Values $service.JenkinsOptionalEnvVars))
             $lines += ("  Compose env vars: " + (Get-TextList -Values $service.ComposeRequiredEnvVars))
             $lines += ("  Missing compose env vars in runtime env file: " + (Get-TextList -Values $service.MissingComposeEnvVars))
             $lines += ("  Config artifacts: " + (Get-TextList -Values $service.ConfigArtifactFiles))
@@ -552,7 +445,6 @@ switch ($Format) {
             $lines += ("  Selected compatible in-cluster data services: " + (Get-TextList -Values $service.SelectedCompatibleDataServices))
             $lines += ("  Related applications: " + (Get-TextList -Values $service.RelatedApplications))
             $lines += ("  Selected related applications: " + (Get-TextList -Values $service.SelectedRelatedApplications))
-            $lines += ("  Pipeline notes: " + $pipelineNotes)
             $lines += ("  Runtime notes: " + $runtimeNotes)
             $lines += ("  Dependency notes: " + $dependencyNotes)
             $lines += ""

@@ -22,19 +22,6 @@ Typical edits:
 - Adminer default database host
 - Local compose host ports
 
-## Jenkins
-
-The generic Jenkins layer is focused on repository validation, bundle delivery, and bundle promotion.
-
-Main entry points:
-
-- `jenkins/repository-validation.Jenkinsfile`
-- `jenkins/bundle-delivery.Jenkinsfile`
-- `jenkins/bundle-promotion.Jenkinsfile`
-- `jenkins/job-seed.Jenkinsfile`
-
-For the public-image sample services, no per-service Jenkins build jobs are required by default.
-
 ## Local Compose Examples
 
 The `services/` directory is now compose-first and public-image-first:
@@ -54,6 +41,5 @@ The Kubernetes examples now use common service ports:
 - PostgreSQL: `5432`
 - HTTP services: `80`
 - Adminer: `8080`
-- Jenkins UI: `8080`
 
 The default application manifests do not require a private image registry.

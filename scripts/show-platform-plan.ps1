@@ -22,8 +22,7 @@ function Get-PlanDocument {
         [object[]]$RawPhases,
         [object[]]$HelmReleases,
         [object[]]$OptionalManifests,
-        [string]$Format,
-        [bool]$IncludeJenkins
+        [string]$Format
     )
 
     $applicationsText = if ($Selection.Applications.Count -gt 0) {
@@ -40,8 +39,6 @@ function Get-PlanDocument {
         "none selected"
     }
 
-    $includeJenkinsText = [string]$IncludeJenkins
-
     switch ($Format) {
         "json" {
             return ([ordered]@{
@@ -49,7 +46,6 @@ function Get-PlanDocument {
                 Description = $Selection.Description
                 Applications = @($Selection.Applications)
                 DataServices = @($Selection.DataServices)
-                IncludeJenkins = [bool]$IncludeJenkins
                 K8sDirectories = @($Selection.K8sDirectories)
                 ServiceDirectories = @($Selection.ServiceDirectories)
                 Components = @($AllComponents)
@@ -68,7 +64,6 @@ function Get-PlanDocument {
                 ("- Description: " + $Selection.Description),
                 ("- Applications: " + $applicationsText),
                 ("- Data services: " + $dataServicesText),
-                ("- Include Jenkins: " + $includeJenkinsText),
                 ""
             )
 
@@ -206,7 +201,6 @@ function Get-PlanDocument {
                 ("Description: " + $Selection.Description),
                 ("Applications: " + $applicationsText),
                 ("Data services: " + $dataServicesText),
-                ("Include Jenkins: " + $includeJenkinsText),
                 ""
             )
 
@@ -375,8 +369,7 @@ $document = Get-PlanDocument `
     -RawPhases $rawPhases `
     -HelmReleases $helmReleases `
     -OptionalManifests $optionalManifests `
-    -Format $Format `
-    -IncludeJenkins ([bool]$IncludeJenkins)
+    -Format $Format
 
 if ($PSBoundParameters.ContainsKey("OutputPath") -and $OutputPath) {
     $resolvedOutputPath = [System.IO.Path]::GetFullPath($OutputPath)

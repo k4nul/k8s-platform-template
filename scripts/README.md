@@ -13,7 +13,6 @@ This directory contains the main entry-point scripts for inspecting, validating,
 - `show-platform-plan.ps1`: preview selected components
 - `show-platform-values-plan.ps1`: preview required values
 - `show-service-runtime-plan.ps1`: preview compose runtime variables
-- `show-jenkins-job-plan.ps1`: preview the Jenkins job chain
 
 ### Validate
 

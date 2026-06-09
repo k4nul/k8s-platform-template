@@ -99,8 +99,6 @@
 - `CLUSTER_SECRET_PLAN.md`
 - `PLATFORM_VALUES_PLAN.md`
 - `SERVICE_RUNTIME_PLAN.md`
-- `jenkins/JOB_PLAN.md`
-- `jenkins/seed-job-dsl.groovy`
 
 기본 출력 경로는 보통 `out/delivery/<environment>/` 입니다.
 
@@ -138,14 +136,9 @@ kubectl apply -f .\out\delivery\dev\k8s\400_platform_httpbin\
 kubectl apply -f .\out\delivery\dev\k8s\400_platform_whoami\
 ```
 
-## 7. Jenkins 흐름이 필요하다면
+## 7. CI/CD 흐름이 필요하다면
 
-```powershell
-.\scripts\show-jenkins-job-plan.ps1 -EnvironmentPreset dev -Format markdown
-.\scripts\export-jenkins-job-dsl.ps1 -EnvironmentPreset dev -OutputPath .\out\jenkins\seed-job-dsl.groovy
-```
-
-Jenkins 설정 흐름은 `jenkins/README.ko.md` 를 참고하면 됩니다.
+Jenkins 잡이 필요하면 `../jenkins-pipeline-template` 저장소를 사용합니다.
 
 ## 8. 다음에 읽으면 좋은 문서
 

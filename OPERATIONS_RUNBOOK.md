@@ -137,14 +137,7 @@ Remove the deployed bundle in reverse order if you need to roll back the full st
 
 For partial rollback, use the generated helpers with explicit phase or release selections instead of deleting the whole bundle.
 
-## 10. Jenkins Mapping
+## 10. CI/CD Mapping
 
-Recommended Jenkins flow:
-
-1. `repository-validation.Jenkinsfile`: repository and render validation
-2. `bundle-delivery.Jenkinsfile`: render, validate, and archive a bundle artifact
-3. `bundle-promotion.Jenkinsfile`: unpack, validate, and optionally deploy the archived bundle
-
-Pass the same preset name through all three jobs so the local workflow and CI workflow stay aligned.
-Generate the recommended folder structure and shared service job list first with `.\scripts\show-jenkins-job-plan.ps1 -Format markdown`, then use `jenkins\JOB_BLUEPRINT.md` to map that plan into real Jenkins folders, triggers, and approval gates.
-If you want Jenkins to create those folders and SCM-backed pipeline jobs automatically, generate Job DSL with `.\scripts\export-jenkins-job-dsl.ps1` or run `jenkins\job-seed.Jenkinsfile` with the Jenkins Job DSL plugin enabled.
+Keep the same environment preset names between local validation and CI/CD so rendered artifacts stay comparable.
+Jenkins pipeline and Job DSL assets are maintained in the separated `../jenkins-pipeline-template` repository.

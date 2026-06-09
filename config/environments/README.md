@@ -18,7 +18,6 @@ This directory contains reusable environment presets that reduce repeated argume
 - `Profile`: default bundle profile
 - `Applications`: default application selection
 - `DataServices`: default data service selection
-- `IncludeJenkins`: whether the selected bundle should include Jenkins components
 - `OutputPath`: default rendered bundle output path for delivery workflows
 - `ArchivePath`: default ZIP archive path for delivery or promotion workflows
 - `PromotionExtractPath`: default extraction path for promotion workflows

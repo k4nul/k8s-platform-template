@@ -76,7 +76,6 @@ switch ($Format) {
             Applications = @($planData.Selection.Applications)
             ExplicitDataServices = @($planData.Selection.DataServices)
             EffectiveDataServices = @($planData.EffectiveDataServices)
-            IncludeJenkins = [bool]$IncludeJenkins
             ValuesFile = $planData.ValuesFilePath
             K8sDirectories = @($planData.K8sDirectories)
             ServiceDirectories = @($planData.ServiceDirectories)

@@ -21,28 +21,6 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "platform-catalog.ps1")
 
-function Get-JenkinsSelectionName {
-    param(
-        [AllowEmptyString()]
-        [string]$Value
-    )
-
-    if (-not $Value) {
-        return "bundle"
-    }
-
-    $normalized = $Value.Trim()
-    $normalized = $normalized -replace "[/\\]+", "-"
-    $normalized = $normalized -replace "[^A-Za-z0-9._-]+", "-"
-    $normalized = $normalized.Trim("-")
-
-    if (-not $normalized) {
-        return "bundle"
-    }
-
-    return $normalized
-}
-
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
 }
@@ -58,8 +36,6 @@ $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applicat
 $componentCatalog = Get-PlatformK8sComponentCatalog
 $optionalManifestCatalog = Get-PlatformOptionalManifestCatalog
 $helmConfig = Import-PowerShellDataFile -Path $resolvedHelmConfig
-$jenkinsJobPlanScript = Join-Path $PSScriptRoot "show-jenkins-job-plan.ps1"
-$jenkinsJobDslExportScript = Join-Path $PSScriptRoot "export-jenkins-job-dsl.ps1"
 
 New-Item -ItemType Directory -Path $resolvedBundleRoot -Force | Out-Null
 
@@ -175,7 +151,6 @@ $bundleManifest = [ordered]@{
     Description = $selection.Description
     Applications = @($selection.Applications)
     DataServices = @($selection.DataServices)
-    IncludeJenkins = [bool]$IncludeJenkins
     DockerRegistry = $DockerRegistry
     Version = $Version
     ValuesFileSource = $resolvedValuesFile
@@ -194,7 +169,6 @@ $applicationsText = if ($selection.Applications.Count -gt 0) { $selection.Applic
 $dataServicesText = if ($selection.DataServices.Count -gt 0) { $selection.DataServices -join ", " } else { "none selected" }
 $dockerRegistryText = if ($DockerRegistry) { $DockerRegistry } else { "not set" }
 $versionText = if ($Version) { $Version } else { "not set" }
-$includeJenkinsText = [string]([bool]$IncludeJenkins)
 
 $docLines = @(
     "# Deployment Bundle",
@@ -207,7 +181,6 @@ $docLines = @(
     ("- Description: " + $selection.Description),
     ("- Applications: " + $applicationsText),
     ("- Data services: " + $dataServicesText),
-    ("- Include Jenkins: " + $includeJenkinsText),
     ("- Docker registry: " + $dockerRegistryText),
     ("- Version: " + $versionText),
     "",
@@ -236,12 +209,8 @@ $docLines = @(
     "- `SERVICE_BUILD_PLAN.md`: service image build profiles and wrapper expectations.",
     "- `SERVICE_CONFIG_PLAN.md`: repository-managed JSON and INI templates plus placeholders.",
     "- `SERVICE_DEPENDENCY_PLAN.md`: service prerequisites, compatible in-cluster data services, and peer components.",
-    "- `SERVICE_INPUT_PLAN.md`: Jenkins variables, compose variables, values keys, and selected service prerequisites in one summary.",
+    "- `SERVICE_INPUT_PLAN.md`: compose variables, values keys, and selected service prerequisites in one summary.",
     "- `SERVICE_RUNTIME_PLAN.md`: compose ports, mounts, and runtime expectations.",
-    "- `jenkins\README.md`: bundle-specific Jenkins automation asset summary and next steps.",
-    "- `jenkins\JOB_PLAN.md`: Jenkins folder layout, pipeline chain, and parameter defaults for this exact bundle selection.",
-    "- `jenkins\job-plan.json`: machine-readable version of the generated Jenkins job plan.",
-    "- `jenkins\seed-job-dsl.groovy`: Job DSL output that can create matching Jenkins folders and pipeline jobs after you replace the placeholder repository URL.",
     "- `platform-values.env.example`: filtered platform values example for the selected bundle.",
     "- `service-runtime.env.example`: filtered compose env example for the selected services.",
     ""
@@ -883,88 +852,4 @@ Set-Content -Path (Join-Path $resolvedBundleRoot "deploy-bundle.ps1") -Value $de
 Set-Content -Path (Join-Path $resolvedBundleRoot "status-bundle.ps1") -Value $statusScript -NoNewline
 Set-Content -Path (Join-Path $resolvedBundleRoot "destroy-bundle.ps1") -Value $destroyScript -NoNewline
 
-$bundleLeafName = Split-Path -Path $resolvedBundleRoot -Leaf
-$jenkinsSelectionName = Get-JenkinsSelectionName -Value $bundleLeafName
-$jenkinsAssetRoot = Join-Path $resolvedBundleRoot "jenkins"
-$defaultJenkinsArchivePath = $resolvedBundleRoot + ".zip"
-$defaultJenkinsPromotionPath = Join-Path (Split-Path -Path $resolvedBundleRoot -Parent) ("{0}-promotion" -f $jenkinsSelectionName)
-
-New-Item -ItemType Directory -Path $jenkinsAssetRoot -Force | Out-Null
-
-& $jenkinsJobPlanScript `
-    -RepoRoot $root `
-    -SelectionName $jenkinsSelectionName `
-    -Profile $Profile `
-    -Applications $Applications `
-    -DataServices $DataServices `
-    -ValuesFile $resolvedValuesFile `
-    -DockerRegistry $DockerRegistry `
-    -Version $Version `
-    -BundleOutputPath $resolvedBundleRoot `
-    -ArchivePath $defaultJenkinsArchivePath `
-    -PromotionExtractPath $defaultJenkinsPromotionPath `
-    -IncludeJenkins:$IncludeJenkins `
-    -Format markdown `
-    -OutputPath (Join-Path $jenkinsAssetRoot "JOB_PLAN.md")
-
-& $jenkinsJobPlanScript `
-    -RepoRoot $root `
-    -SelectionName $jenkinsSelectionName `
-    -Profile $Profile `
-    -Applications $Applications `
-    -DataServices $DataServices `
-    -ValuesFile $resolvedValuesFile `
-    -DockerRegistry $DockerRegistry `
-    -Version $Version `
-    -BundleOutputPath $resolvedBundleRoot `
-    -ArchivePath $defaultJenkinsArchivePath `
-    -PromotionExtractPath $defaultJenkinsPromotionPath `
-    -IncludeJenkins:$IncludeJenkins `
-    -Format json `
-    -OutputPath (Join-Path $jenkinsAssetRoot "job-plan.json")
-
-$defaultJenkinsRepoUrl = "https://github.com/k4nul/k8s-platform-template.git"
-
-& $jenkinsJobDslExportScript `
-    -RepoRoot $root `
-    -SelectionName $jenkinsSelectionName `
-    -Profile $Profile `
-    -Applications $Applications `
-    -DataServices $DataServices `
-    -ValuesFile $resolvedValuesFile `
-    -DockerRegistry $DockerRegistry `
-    -Version $Version `
-    -BundleOutputPath $resolvedBundleRoot `
-    -ArchivePath $defaultJenkinsArchivePath `
-    -PromotionExtractPath $defaultJenkinsPromotionPath `
-    -IncludeJenkins:$IncludeJenkins `
-    -RepoUrl $defaultJenkinsRepoUrl `
-    -OutputPath (Join-Path $jenkinsAssetRoot "seed-job-dsl.groovy")
-
-$jenkinsReadmeLines = @(
-    "# Jenkins Automation Assets",
-    "",
-    "These files were generated for the exact bundle selection in this directory so operators can carry the matching Jenkins setup alongside the deployment bundle.",
-    "",
-    "## Included Files",
-    "",
-    "- `JOB_PLAN.md`: bundle-specific Jenkins folder and job plan.",
-    "- `job-plan.json`: machine-readable version of the same plan.",
-    "- `seed-job-dsl.groovy`: Job DSL Groovy for creating the matching folders and pipeline jobs.",
-    "",
-    "## Notes",
-    "",
-    ("- Generated selection name: " + $jenkinsSelectionName),
-    ("- Suggested bundle output path: " + $resolvedBundleRoot),
-    ("- Suggested bundle archive path: " + $defaultJenkinsArchivePath),
-    ("- Suggested promotion extract path: " + $defaultJenkinsPromotionPath),
-    ("- Include Jenkins components in bundle selection: " + [string]([bool]$IncludeJenkins)),
-    ("- `seed-job-dsl.groovy` is preconfigured with the repository URL `{0}`." -f $defaultJenkinsRepoUrl),
-    "- If you fork or mirror this template, re-run `scripts\\export-jenkins-job-dsl.ps1` with your own Git URL and credentials ID before applying the DSL in Jenkins.",
-    ""
-)
-
-Set-Content -Path (Join-Path $jenkinsAssetRoot "README.md") -Value ($jenkinsReadmeLines -join [Environment]::NewLine) -NoNewline
-
 Write-Host ("Wrote bundle metadata and deployment helpers to {0}" -f $resolvedBundleRoot)
-Write-Host ("Wrote Jenkins automation assets to {0}" -f $jenkinsAssetRoot)

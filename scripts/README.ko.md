@@ -13,7 +13,6 @@
 - `show-platform-plan.ps1`: 선택된 컴포넌트 미리보기
 - `show-platform-values-plan.ps1`: 필요한 값 미리보기
 - `show-service-runtime-plan.ps1`: compose 런타임 변수 미리보기
-- `show-jenkins-job-plan.ps1`: Jenkins 잡 체인 미리보기
 
 ### 검증
 

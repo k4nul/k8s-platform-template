@@ -100,8 +100,6 @@ The rendered bundle will include:
 - `CLUSTER_SECRET_PLAN.md`
 - `PLATFORM_VALUES_PLAN.md`
 - `SERVICE_RUNTIME_PLAN.md`
-- `jenkins/JOB_PLAN.md`
-- `jenkins/seed-job-dsl.groovy`
 
 By default the output goes under `out/delivery/<environment>/`.
 
@@ -139,16 +137,9 @@ kubectl apply -f .\out\delivery\dev\k8s\400_platform_httpbin\
 kubectl apply -f .\out\delivery\dev\k8s\400_platform_whoami\
 ```
 
-## 7. Optional Jenkins Flow
+## 7. Optional CI/CD Flow
 
-If you want Jenkins jobs for the repository:
-
-```powershell
-.\scripts\show-jenkins-job-plan.ps1 -EnvironmentPreset dev -Format markdown
-.\scripts\export-jenkins-job-dsl.ps1 -EnvironmentPreset dev -OutputPath .\out\jenkins\seed-job-dsl.groovy
-```
-
-See `jenkins/README.md` for the Jenkins setup flow.
+If you want Jenkins jobs for the repository, use `../jenkins-pipeline-template`.
 
 ## 8. What To Read Next
 

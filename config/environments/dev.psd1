@@ -11,7 +11,6 @@
     DataServices = @(
         "redis"
     )
-    IncludeJenkins = $false
     OutputPath = "out\delivery\dev"
     ArchivePath = "out\delivery\dev.zip"
     PromotionExtractPath = "out\promotion\dev"

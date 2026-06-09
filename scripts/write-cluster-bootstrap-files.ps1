@@ -138,7 +138,6 @@ $bootstrapManifest = [ordered]@{
     Description = $planData.Description
     Applications = @($planData.Applications)
     DataServices = @($planData.DataServices)
-    IncludeJenkins = [bool]$planData.IncludeJenkins
     IncludeBundleManaged = [bool]$planData.IncludeBundleManaged
     ValuesFileSource = $planData.ValuesFile
     Namespaces = @($namespaceManifestEntries | Sort-Object Name)
@@ -168,7 +167,6 @@ $docLines = @(
     ("- Description: " + $planData.Description),
     ("- Applications: " + $applicationsText),
     ("- Data services: " + $dataServicesText),
-    ("- Include Jenkins: " + [string]([bool]$planData.IncludeJenkins)),
     ("- Include bundle-managed secrets: " + [string]([bool]$planData.IncludeBundleManaged)),
     ("- Values file: " + $planData.ValuesFile),
     ("- Generated namespaces: " + [string]@($namespaceManifestEntries).Count),

@@ -18,7 +18,6 @@
 - `Profile`: 기본 번들 프로필
 - `Applications`: 기본 애플리케이션 선택
 - `DataServices`: 기본 데이터 서비스 선택
-- `IncludeJenkins`: 선택된 번들에 Jenkins 컴포넌트를 포함할지 여부
 - `OutputPath`: 번들 생성 워크플로우의 기본 출력 경로
 - `ArchivePath`: 번들 생성 또는 승격 워크플로우의 기본 ZIP 경로
 - `PromotionExtractPath`: 번들 승격 워크플로우의 기본 압축 해제 경로
