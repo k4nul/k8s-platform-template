@@ -38,3 +38,10 @@ spec:
             port: http
           initialDelaySeconds: 15
           periodSeconds: 20
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 250m
+            memory: 128Mi

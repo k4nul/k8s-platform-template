@@ -12,6 +12,7 @@ param(
     [switch]$PrepareHelmRepos,
     [switch]$Strict,
     [switch]$ValidateCrdBackedResources,
+    [switch]$FailOnHighSecurityBaselineFinding,
     [switch]$RequireBootstrapSecretsReady,
     [switch]$KeepRenderedOutput
 )
@@ -36,6 +37,7 @@ $renderScript = Join-Path $root "scripts\render-platform-assets.ps1"
 $platformValuesValidationScript = Join-Path $root "scripts\validate-platform-values.ps1"
 $selectionValidationScript = Join-Path $root "scripts\validate-platform-selection.ps1"
 $validateRenderedScript = Join-Path $root "scripts\validate-rendered-bundle.ps1"
+$securityBaselineValidationScript = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 $validateHelmScript = Join-Path $root "scripts\validate-helm-values.ps1"
 $createdTempOutput = $false
 
@@ -94,6 +96,10 @@ try {
         -RenderedPath $RenderedPath `
         -Strict:$Strict `
         -ValidateCrdBackedResources:$ValidateCrdBackedResources
+
+    & $securityBaselineValidationScript `
+        -Path $RenderedPath `
+        -FailOnHighFinding:$FailOnHighSecurityBaselineFinding
 
     & $validateHelmScript `
         -RepoRoot $root `

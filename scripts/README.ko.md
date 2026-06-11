@@ -19,6 +19,7 @@
 - `validate-template.ps1`: 저장소 구조와 예제 자산 검증
 - `invoke-repository-validation.ps1`: 메인 검증 흐름 실행
 - `validate-platform-assets.ps1`: 렌더링된 자산 직접 검증
+- `validate-kubernetes-security-baseline.ps1`: 렌더링된 Kubernetes YAML의 위험한 기본값과 기준선 누락 점검
 - `validate-workstation.ps1`: `kubectl`, `helm` 같은 로컬 도구 점검
 
 ### 렌더링과 전달

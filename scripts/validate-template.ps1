@@ -57,7 +57,9 @@ $expectedPaths = @(
     "scripts\README.md",
     "scripts\platform-catalog.ps1",
     "scripts\validate-service-builds.ps1",
-    "scripts\show-service-build-plan.ps1"
+    "scripts\show-service-build-plan.ps1",
+    "scripts\validate-rendered-bundle.ps1",
+    "scripts\validate-kubernetes-security-baseline.ps1"
 )
 
 foreach ($relativePath in $expectedPaths) {
@@ -72,6 +74,22 @@ $selectionValidation = Join-Path $root "scripts\validate-platform-selection.ps1"
 $valueValidation = Join-Path $root "scripts\validate-platform-values.ps1"
 $renderScript = Join-Path $root "scripts\render-platform-assets.ps1"
 $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
+$renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
+$securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
+
+Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes schema validation gate"
+
+$securityBaselineTerms = @(
+    "securityContext",
+    "resources",
+    "readinessProbe",
+    "livenessProbe",
+    "NetworkPolicy"
+)
+
+foreach ($term in $securityBaselineTerms) {
+    Assert-FileContains -Path $securityBaselineValidation -Pattern $term -Label "Kubernetes security baseline validation gate"
+}
 
 & $serviceCatalogValidation -RepoRoot $root
 & $serviceBuildValidation -RepoRoot $root
@@ -118,6 +136,38 @@ try {
         -Profile web-platform `
         -Applications nginx-web,httpbin,whoami `
         -DataServices redis
+
+    $renderMatrix = @(
+        @{
+            Name = "data-services"
+            Profile = "data-services"
+            Applications = @()
+            DataServices = @("mysql", "postgresql", "redis")
+        },
+        @{
+            Name = "shared-services"
+            Profile = "shared-services"
+            Applications = @("nginx-web", "adminer")
+            DataServices = @("postgresql", "redis")
+        },
+        @{
+            Name = "full"
+            Profile = "full"
+            Applications = @("nginx-web", "httpbin", "whoami", "adminer")
+            DataServices = @("mysql", "postgresql", "redis")
+        }
+    )
+
+    foreach ($matrixEntry in $renderMatrix) {
+        Write-Host ("Validating render matrix profile: {0}" -f $matrixEntry.Name)
+        & $assetValidation `
+            -RepoRoot $root `
+            -ValuesFile $publicValuesFile `
+            -Version "0.0.0-check" `
+            -Profile $matrixEntry.Profile `
+            -Applications @($matrixEntry.Applications) `
+            -DataServices @($matrixEntry.DataServices)
+    }
 }
 finally {
     if (Test-Path -LiteralPath $tempOutput) {

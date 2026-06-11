@@ -19,6 +19,7 @@ This directory contains the main entry-point scripts for inspecting, validating,
 - `validate-template.ps1`: validate repository structure and example assets
 - `invoke-repository-validation.ps1`: run the main validation flow
 - `validate-platform-assets.ps1`: validate rendered assets directly
+- `validate-kubernetes-security-baseline.ps1`: review rendered Kubernetes YAML for risky defaults and baseline gaps
 - `validate-workstation.ps1`: check local tools such as `kubectl` and `helm`
 
 ### Render And Deliver

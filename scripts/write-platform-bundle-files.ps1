@@ -165,8 +165,16 @@ $bundleManifest = [ordered]@{
 $manifestPath = Join-Path $resolvedBundleRoot "bundle-manifest.json"
 $bundleManifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -NoNewline
 
-$applicationsText = if ($selection.Applications.Count -gt 0) { $selection.Applications -join ", " } else { "none selected" }
-$dataServicesText = if ($selection.DataServices.Count -gt 0) { $selection.DataServices -join ", " } else { "none selected" }
+$selectedApplications = @($selection.Applications)
+$selectedDataServices = @($selection.DataServices)
+$phaseItems = @($phaseList)
+$helmReleaseItems = @($helmReleases)
+$skippedHelmReleaseItems = @($skippedHelmReleases)
+$optionalManifestItems = @($optionalManifests)
+$renderedServiceDirectoryItems = @($renderedServiceDirectories)
+
+$applicationsText = if ($selectedApplications.Count -gt 0) { $selectedApplications -join ", " } else { "none selected" }
+$dataServicesText = if ($selectedDataServices.Count -gt 0) { $selectedDataServices -join ", " } else { "none selected" }
 $dockerRegistryText = if ($DockerRegistry) { $DockerRegistry } else { "not set" }
 $versionText = if ($Version) { $Version } else { "not set" }
 
@@ -216,10 +224,10 @@ $docLines = @(
     ""
 )
 
-if ($phaseList.Count -gt 0) {
+if ($phaseItems.Count -gt 0) {
     $docLines += "## Raw Manifest Phases"
     $docLines += ""
-    foreach ($phase in $phaseList) {
+    foreach ($phase in $phaseItems) {
         $docLines += ("### " + $phase.Name)
         $docLines += ""
         foreach ($component in @($phase.Components)) {
@@ -232,37 +240,37 @@ if ($phaseList.Count -gt 0) {
     }
 }
 
-if ($helmReleases.Count -gt 0) {
+if ($helmReleaseItems.Count -gt 0) {
     $docLines += "## Helm Components"
     $docLines += ""
-    foreach ($release in $helmReleases) {
+    foreach ($release in $helmReleaseItems) {
         $docLines += ("- " + $release.Name + ": chart " + $release.Chart + ", namespace " + $release.Namespace + ", values " + $release.ValuesPath)
     }
     $docLines += ""
 }
 
-if ($optionalManifests.Count -gt 0) {
+if ($optionalManifestItems.Count -gt 0) {
     $docLines += "## Optional Follow-up Manifests"
     $docLines += ""
-    foreach ($item in $optionalManifests) {
+    foreach ($item in $optionalManifestItems) {
         $docLines += ("- " + $item.RelativePath + ": " + $item.Notes)
     }
     $docLines += ""
 }
 
-if ($renderedServiceDirectories.Count -gt 0) {
+if ($renderedServiceDirectoryItems.Count -gt 0) {
     $docLines += "## Included Service Configurations"
     $docLines += ""
-    foreach ($serviceDirectory in $renderedServiceDirectories) {
+    foreach ($serviceDirectory in $renderedServiceDirectoryItems) {
         $docLines += ("- " + $serviceDirectory)
     }
     $docLines += ""
 }
 
-if ($skippedHelmReleases.Count -gt 0) {
+if ($skippedHelmReleaseItems.Count -gt 0) {
     $docLines += "## Skipped Helm Releases"
     $docLines += ""
-    foreach ($release in $skippedHelmReleases) {
+    foreach ($release in $skippedHelmReleaseItems) {
         $docLines += ("- " + $release.Name + ": " + $release.Reason)
     }
     $docLines += ""
