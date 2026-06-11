@@ -114,9 +114,7 @@ function Get-ClusterSecretExampleManifest {
             $lines += "    REPLACE_WITH_CERTIFICATE_CONTENT"
             $lines += "    -----END CERTIFICATE-----"
             $lines += "  tls.key: |"
-            $lines += "    -----BEGIN PRIVATE KEY-----"
-            $lines += "    REPLACE_WITH_PRIVATE_KEY_CONTENT"
-            $lines += "    -----END PRIVATE KEY-----"
+            $lines += "    REPLACE_WITH_PRIVATE_KEY_PEM_CONTENT"
         }
         "basic-auth" {
             $lines += "stringData:"

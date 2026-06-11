@@ -9,7 +9,11 @@ function Get-RelativePathCompat {
         [string]$TargetPath
     )
 
-    $normalizedBase = [System.IO.Path]::GetFullPath($BasePath).TrimEnd('\') + '\'
+    $separatorChars = [char[]]@(
+        [System.IO.Path]::DirectorySeparatorChar,
+        [System.IO.Path]::AltDirectorySeparatorChar
+    )
+    $normalizedBase = [System.IO.Path]::GetFullPath($BasePath).TrimEnd($separatorChars) + [System.IO.Path]::DirectorySeparatorChar
     $baseUri = New-Object System.Uri($normalizedBase)
     $targetUri = New-Object System.Uri([System.IO.Path]::GetFullPath($TargetPath))
 

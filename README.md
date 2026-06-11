@@ -4,6 +4,14 @@ English | [한국어](README.ko.md)
 
 This repository is a public, reusable template for teams that want to assemble a Kubernetes platform bundle without inheriting company-specific services, private image assumptions, or fixed legacy port conventions.
 
+## Open Source
+
+This repository is prepared for public collaboration under the [MIT License](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before opening issues or pull requests.
+Do not commit kubeconfigs, generated secret manifests with real values, local
+environment files, or rendered `out/` bundles.
+
 It combines:
 
 - generic Kubernetes manifests

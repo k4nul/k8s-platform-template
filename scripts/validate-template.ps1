@@ -34,6 +34,7 @@ if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
 }
 
 $root = (Resolve-Path -Path $RepoRoot).Path
+$publicValuesFile = Join-Path $root "config\platform-values.env.example"
 
 $expectedPaths = @(
     "README.md",
@@ -42,7 +43,6 @@ $expectedPaths = @(
     "ENV_CHECKLIST.md",
     "config\README.md",
     "config\platform-values.env.example",
-    "config\platform-values.dev.env",
     "config\profiles\README.md",
     "services\README.md",
     "services\nginx-web\README.md",
@@ -75,10 +75,10 @@ $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
 
 & $serviceCatalogValidation -RepoRoot $root
 & $serviceBuildValidation -RepoRoot $root
-& $serviceConfigValidation -RepoRoot $root -ValuesFile (Join-Path $root "config\platform-values.dev.env")
+& $serviceConfigValidation -RepoRoot $root -ValuesFile $publicValuesFile
 & $serviceRuntimeValidation -RepoRoot $root
 & $selectionValidation -RepoRoot $root -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis
-& $valueValidation -RepoRoot $root -ValuesFile (Join-Path $root "config\platform-values.dev.env") -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis
+& $valueValidation -RepoRoot $root -ValuesFile $publicValuesFile -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis
 
 $tempOutput = Join-Path ([System.IO.Path]::GetTempPath()) ("platform-template-" + [Guid]::NewGuid().ToString("N"))
 
@@ -86,7 +86,7 @@ try {
     & $renderScript `
         -RepoRoot $root `
         -OutputPath $tempOutput `
-        -ValuesFile (Join-Path $root "config\platform-values.dev.env") `
+        -ValuesFile $publicValuesFile `
         -Version "0.0.0-check" `
         -Profile web-platform `
         -Applications nginx-web,httpbin,whoami `
@@ -108,13 +108,13 @@ try {
         Assert-PathExists -Path (Join-Path $tempOutput $relativePath) -Label "rendered bundle path"
     }
 
-    Assert-FileContains -Path (Join-Path $tempOutput "k8s\400_platform_nginx-web\config.yaml") -Pattern "Development bundle for the generic Kubernetes platform template\." -Label "Rendered nginx-web config"
-    Assert-FileContains -Path (Join-Path $tempOutput "k8s\308_platform_gateway-api\httproute-nginx-web.yaml") -Pattern "nginx\.dev\.example\.com" -Label "Rendered gateway route"
+    Assert-FileContains -Path (Join-Path $tempOutput "k8s\400_platform_nginx-web\config.yaml") -Pattern "Replace this landing page message with your own text\." -Label "Rendered nginx-web config"
+    Assert-FileContains -Path (Join-Path $tempOutput "k8s\308_platform_gateway-api\httproute-nginx-web.yaml") -Pattern "nginx\.example\.com" -Label "Rendered gateway route"
 
     & $assetValidation `
         -RepoRoot $root `
         -RenderedPath $tempOutput `
-        -ValuesFile (Join-Path $root "config\platform-values.dev.env") `
+        -ValuesFile $publicValuesFile `
         -Profile web-platform `
         -Applications nginx-web,httpbin,whoami `
         -DataServices redis
