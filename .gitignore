@@ -12,3 +12,6 @@ kubeconfig*
 *.p12
 secrets/
 cluster-bootstrap/
+AGENTS.md
+.codex/
+docs/management/
