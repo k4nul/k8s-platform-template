@@ -16,57 +16,6 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "platform-catalog.ps1")
 
-function Get-EffectiveServiceDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllServices) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "services") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.ServiceDirectories | Sort-Object -Unique)
-}
-
-function Get-EffectiveK8sDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllK8s) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "k8s") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.K8sDirectories | Sort-Object -Unique)
-}
-
-function Get-EffectiveDataServices {
-    param(
-        [string[]]$K8sDirectories,
-        [pscustomobject]$Selection,
-        [System.Collections.IDictionary]$DataServiceCatalog
-    )
-
-    $effectiveDataServices = New-Object System.Collections.Generic.List[string]
-    foreach ($serviceName in @($DataServiceCatalog.Keys | Sort-Object)) {
-        if ($Selection.DataServices -contains $serviceName -or $K8sDirectories -contains $DataServiceCatalog[$serviceName]) {
-            $effectiveDataServices.Add($serviceName) | Out-Null
-        }
-    }
-
-    return @($effectiveDataServices | Sort-Object -Unique)
-}
-
 function Get-EnvFileKeys {
     param(
         [string]$Path

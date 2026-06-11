@@ -13,6 +13,7 @@ This directory contains reusable environment presets that reduce repeated argume
 ## What A Preset Usually Controls
 
 - `ValuesFile`: default values file path
+- `ValidationValuesFile`: optional public-default values file for clean repository validation
 - `DockerRegistry`: optional registry host used only when you introduce private images
 - `Version`: default image tag or validation tag
 - `Profile`: default bundle profile

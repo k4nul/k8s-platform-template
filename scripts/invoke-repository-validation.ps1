@@ -103,6 +103,13 @@ $environmentPresetData = Get-EnvironmentPresetData `
     -EnvironmentPresetFile $EnvironmentPresetFile
 
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ValuesFile" -Target ([ref]$ValuesFile)
+if (
+    -not $PSBoundParameters.ContainsKey("ValuesFile") -and
+    $environmentPresetData -and
+    $environmentPresetData.ContainsKey("ValidationValuesFile")
+) {
+    $ValuesFile = $environmentPresetData["ValidationValuesFile"]
+}
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RenderedPath" -Target ([ref]$RenderedPath)
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "HelmConfigFile" -Target ([ref]$HelmConfigFile)
 Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DockerRegistry" -Target ([ref]$DockerRegistry)

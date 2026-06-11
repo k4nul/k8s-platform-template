@@ -57,40 +57,6 @@ function Get-TextList {
     return $Empty
 }
 
-function Get-EffectiveK8sDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllK8s) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "k8s") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.K8sDirectories | Sort-Object -Unique)
-}
-
-function Get-EffectiveServiceDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllServices) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "services") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.ServiceDirectories | Sort-Object -Unique)
-}
-
 function Get-OrderedProfileNames {
     param(
         [System.Collections.IDictionary]$Profiles

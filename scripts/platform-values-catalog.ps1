@@ -58,57 +58,6 @@ function Get-EnvFileEntryMap {
     return $map
 }
 
-function Get-EffectivePlatformK8sDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllK8s) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "k8s") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.K8sDirectories | Sort-Object -Unique)
-}
-
-function Get-EffectivePlatformServiceDirectories {
-    param(
-        [string]$Root,
-        [pscustomobject]$Selection
-    )
-
-    if ($Selection.IncludeAllServices) {
-        return @(
-            Get-ChildItem -Path (Join-Path $Root "services") -Directory |
-                Sort-Object Name |
-                Select-Object -ExpandProperty Name
-        )
-    }
-
-    return @($Selection.ServiceDirectories | Sort-Object -Unique)
-}
-
-function Get-EffectivePlatformDataServices {
-    param(
-        [string[]]$K8sDirectories,
-        [pscustomobject]$Selection,
-        [System.Collections.IDictionary]$DataServiceCatalog
-    )
-
-    $effectiveDataServices = New-Object System.Collections.Generic.List[string]
-    foreach ($serviceName in @($DataServiceCatalog.Keys | Sort-Object)) {
-        if ($Selection.DataServices -contains $serviceName -or $K8sDirectories -contains $DataServiceCatalog[$serviceName]) {
-            $effectiveDataServices.Add($serviceName) | Out-Null
-        }
-    }
-
-    return @($effectiveDataServices | Sort-Object -Unique)
-}
-
 function Get-PlatformValuePlanData {
     param(
         [string]$RepoRoot,
@@ -130,10 +79,10 @@ function Get-PlatformValuePlanData {
     $root = (Resolve-Path -Path $RepoRoot).Path
     $resolvedValuesFile = (Resolve-Path -Path $ValuesFile).Path
     $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
-    $effectiveK8sDirectories = Get-EffectivePlatformK8sDirectories -Root $root -Selection $selection
-    $effectiveServiceDirectories = Get-EffectivePlatformServiceDirectories -Root $root -Selection $selection
+    $effectiveK8sDirectories = Get-EffectiveK8sDirectories -Root $root -Selection $selection
+    $effectiveServiceDirectories = Get-EffectiveServiceDirectories -Root $root -Selection $selection
     $dataServiceCatalog = Get-PlatformDataServiceCatalog
-    $effectiveDataServices = Get-EffectivePlatformDataServices -K8sDirectories $effectiveK8sDirectories -Selection $selection -DataServiceCatalog $dataServiceCatalog
+    $effectiveDataServices = Get-EffectiveDataServices -K8sDirectories $effectiveK8sDirectories -Selection $selection -DataServiceCatalog $dataServiceCatalog
     $catalogMap = Get-PlatformValueCatalogMap -RepoRoot $root
     $envMap = Get-EnvFileEntryMap -Path $resolvedValuesFile
     $serviceConfigCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-config-artifacts.psd1")

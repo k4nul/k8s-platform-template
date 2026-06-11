@@ -1,6 +1,7 @@
 @{
     Description = "Generic development preset for a small public-facing sandbox built from public container images."
     ValuesFile = "config\platform-values.dev.env"
+    ValidationValuesFile = "config\platform-values.env.example"
     Version = "0.0.0-dev"
     Profile = "web-platform"
     Applications = @(
