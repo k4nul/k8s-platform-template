@@ -85,6 +85,9 @@ If this is your first visit, follow this order:
 .\scripts\validate-template.ps1
 ```
 
+See [docs/testing.md](docs/testing.md) for the profile and environment render matrix, schema validator behavior, and security baseline checks behind this command.
+Preset validation intentionally uses `config/platform-values.env.example` unless you pass `-ValuesFile`; after editing a generated values file, validate that file explicitly.
+
 5. Render a bundle when you are ready:
 
 ```powershell
@@ -149,6 +152,7 @@ You normally do not need to edit the deeper `*.psd1` catalogs unless you are mai
 ## Documentation Map
 
 - Start quickly: [QUICKSTART.md](QUICKSTART.md)
+- Validation and testing: [docs/testing.md](docs/testing.md)
 - Deployment environment notes: [DEPLOYMENT_ENV.md](DEPLOYMENT_ENV.md)
 - Environment checklist: [ENV_CHECKLIST.md](ENV_CHECKLIST.md)
 - Operations notes: [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)

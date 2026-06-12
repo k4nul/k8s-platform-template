@@ -40,6 +40,7 @@ Validate repository structure, workstation tooling, and rendered bundle dry-runs
 ```
 
 Use this step before delivery packaging or after changing shared templates, catalogs, or preset files.
+For the detailed validation layers, including the public-default render matrix and Kubernetes security baseline behavior, see [docs/testing.md](docs/testing.md).
 
 ## 4. Build A Delivery Artifact
 

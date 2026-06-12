@@ -48,8 +48,18 @@ without editing the preset file immediately.
 
 Template validation uses `ValidationValuesFile` when it renders an environment preset for repository checks. The bundled presets point that field at `config/platform-values.env.example`, which keeps public validation independent from local `platform-values.<env>.env` files that may contain site-specific hostnames, storage paths, or secret placeholders.
 
+After editing a generated environment values file, pass it explicitly:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
 Run the preset matrix directly with:
 
 ```powershell
 .\scripts\validate-render-matrix.ps1
 ```
+
+For the full validation flow and the difference between template validation, repository validation, and delivery validation, see [../../docs/testing.md](../../docs/testing.md).

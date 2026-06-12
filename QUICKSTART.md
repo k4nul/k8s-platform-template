@@ -85,6 +85,16 @@ This step answers two questions before rendering:
 Use `validate-template.ps1` for template-level sanity checks.
 
 Use `invoke-repository-validation.ps1` when you want the more realistic repository workflow, including workstation and rendered-asset checks.
+The preset validation path intentionally uses `config/platform-values.env.example` unless you pass `-ValuesFile`.
+After editing `config/platform-values.dev.env`, validate the edited file explicitly:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
+See [docs/testing.md](docs/testing.md) for the public-default render matrix, schema validation fallback, CRD-backed resource behavior, and Kubernetes security baseline checks.
 
 ## 5. Render A Bundle
 
@@ -97,10 +107,18 @@ The rendered bundle will include:
 - `k8s/`
 - `services/`
 - `DEPLOYMENT_BUNDLE.md`
+- `bundle-manifest.json`
+- `validate-bundle.ps1` and deployment helper scripts
 - `CLUSTER_PREFLIGHT.md`
 - `CLUSTER_SECRET_PLAN.md`
+- `VALIDATION_READINESS.md`
+- `PROFILE_CATALOG.md`
+- `PLATFORM_PLAN.md`
 - `PLATFORM_VALUES_PLAN.md`
+- service build, config, dependency, and input plans
 - `SERVICE_RUNTIME_PLAN.md`
+
+Use `DEPLOYMENT_BUNDLE.md` as the bundle index. It lists the generated helpers, planning documents, and rollout commands for the selected profile and values file.
 
 By default the output goes under `out/delivery/<environment>/`.
 

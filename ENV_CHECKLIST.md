@@ -37,8 +37,12 @@ Replace every environment-specific placeholder before production rollout:
 .\scripts\validate-template.ps1
 .\scripts\validate-workstation.ps1
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
-.\scripts\check-placeholders.ps1 -Path . -FailOnMatch
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev -ValuesFile config\platform-values.dev.env
+.\scripts\check-placeholders.ps1 -Path .\config\platform-values.dev.env -FailOnMatch
+.\scripts\check-placeholders.ps1 -Path .\out\delivery\dev -FailOnMatch
 ```
+
+Placeholder scanning is a production-readiness gate after customization. It will fail against untouched public defaults such as `example.com`, `nfs.example.internal`, and `change-me-*` values by design.
 
 ## Final Questions
 
