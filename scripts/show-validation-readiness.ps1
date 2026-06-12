@@ -25,6 +25,7 @@ function Get-ToolVersion {
 
     switch ($Name) {
         "kubectl" { return (& kubectl version --client 2>$null | Out-String).Trim() }
+        "kubeconform" { return (& kubeconform -v 2>$null | Out-String).Trim() }
         "helm"    { return (& helm version --short 2>$null | Out-String).Trim() }
         "git"     { return (& git --version 2>$null | Out-String).Trim() }
         "docker"  { return (& docker --version 2>$null | Out-String).Trim() }
@@ -52,7 +53,8 @@ function Get-RelativePathFromRoot {
         [string]$Path
     )
 
-    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd([char[]]@('\', '/')) + $separator
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
     return $resolvedPath.Substring($resolvedRoot.Length)
 }
@@ -199,14 +201,21 @@ $bootstrapNamespaceNames = @($bootstrapSecretEntries | Select-Object -ExpandProp
 $bootstrapNamespaceEntries = @($clusterSecretPlan.NamespaceEntries | Where-Object {
     $bootstrapNamespaceNames -contains $_.Namespace -and [string]$_.Provisioning -ne "pre-existing-system"
 })
-$requiresKubectl = ($rawComponents.Count + $deferredComponents.Count + $bootstrapNamespaceEntries.Count + $bootstrapSecretEntries.Count) -gt 0
+$requiresRenderedManifestValidation = ($rawComponents.Count + $deferredComponents.Count + $bootstrapNamespaceEntries.Count + $bootstrapSecretEntries.Count) -gt 0
 $requiresHelm = $helmReleases.Count -gt 0
+$kubectlCommand = Get-Command kubectl -ErrorAction SilentlyContinue
+$kubeconformCommand = Get-Command kubeconform -ErrorAction SilentlyContinue
 
 $toolDefinitions = @(
     @{
         Name = "kubectl"
-        Purpose = "Rendered manifest and bootstrap YAML dry-run validation plus raw bundle apply, status, and destroy helpers."
-        RequiredForSelectedValidation = $requiresKubectl
+        Purpose = "Rendered manifest and bootstrap YAML dry-run validation, plus raw bundle apply, status, and destroy helpers."
+        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -eq $kubeconformCommand)
+    }
+    @{
+        Name = "kubeconform"
+        Purpose = "Rendered manifest schema validation without a live cluster dependency."
+        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -eq $kubectlCommand)
     }
     @{
         Name = "helm"
@@ -232,7 +241,15 @@ $toolDefinitions = @(
 
 $toolReport = @()
 foreach ($definition in $toolDefinitions) {
-    $command = Get-Command $definition.Name -ErrorAction SilentlyContinue
+    if ($definition.Name -eq "kubectl") {
+        $command = $kubectlCommand
+    }
+    elseif ($definition.Name -eq "kubeconform") {
+        $command = $kubeconformCommand
+    }
+    else {
+        $command = Get-Command $definition.Name -ErrorAction SilentlyContinue
+    }
     $toolReport += [PSCustomObject]@{
         Tool = $definition.Name
         Installed = ($null -ne $command)
@@ -264,12 +281,15 @@ $availableChecks.Add("Selection and values validation via .\scripts\validate-pla
 $availableChecks.Add("Service catalog, build, config, pipeline, and runtime validation via the .\scripts\validate-service-*.ps1 helpers") | Out-Null
 $availableChecks.Add("Placeholder scanning via .\scripts\check-placeholders.ps1 -Path .") | Out-Null
 
-if ($requiresKubectl) {
+if ($requiresRenderedManifestValidation) {
     if (($toolReport | Where-Object { $_.Tool -eq "kubectl" }).Installed) {
-        $availableChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1") | Out-Null
+        $availableChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1 using kubectl") | Out-Null
+    }
+    elseif (($toolReport | Where-Object { $_.Tool -eq "kubeconform" }).Installed) {
+        $availableChecks.Add("Rendered raw manifest and bootstrap YAML schema validation via .\scripts\validate-platform-assets.ps1 using kubeconform") | Out-Null
     }
     else {
-        $blockedChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation is blocked until kubectl is installed.") | Out-Null
+        $blockedChecks.Add("Rendered raw manifest and bootstrap YAML schema validation is blocked until kubeconform or kubectl is installed.") | Out-Null
     }
 }
 

@@ -10,6 +10,7 @@ Recommended tools:
 
 - PowerShell or `pwsh`
 - `git`
+- `kubeconform` if you want rendered manifest schema validation without a live cluster
 - `kubectl` if you want cluster-side validation or apply manifests
 - `helm` if you want to validate or install Helm-managed components
 - Docker if you want to run the local compose examples

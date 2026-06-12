@@ -77,7 +77,8 @@ $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 
-Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes schema validation gate"
+Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
+Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
 
 $securityBaselineTerms = @(
     "securityContext",

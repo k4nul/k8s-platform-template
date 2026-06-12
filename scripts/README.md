@@ -20,7 +20,9 @@ This directory contains the main entry-point scripts for inspecting, validating,
 - `invoke-repository-validation.ps1`: run the main validation flow
 - `validate-platform-assets.ps1`: validate rendered assets directly
 - `validate-kubernetes-security-baseline.ps1`: review rendered Kubernetes YAML for risky defaults and baseline gaps
-- `validate-workstation.ps1`: check local tools such as `kubectl` and `helm`
+- `validate-workstation.ps1`: check local tools such as `kubectl`, `kubeconform`, and `helm`
+
+Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows.
 
 ### Render And Deliver
 

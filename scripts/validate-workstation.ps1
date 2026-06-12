@@ -1,6 +1,6 @@
 param(
     [string[]]$RequiredTools = @("kubectl", "helm"),
-    [string[]]$OptionalTools = @("git", "docker", "python"),
+    [string[]]$OptionalTools = @("git", "docker", "python", "kubeconform"),
     [string]$ProfileName = "platform validation",
     [switch]$Strict
 )
@@ -33,6 +33,7 @@ function Get-ToolVersion {
     switch ($Name) {
         "pwsh"    { return $PSVersionTable.PSVersion.ToString() }
         "kubectl" { return (& kubectl version --client 2>$null | Out-String).Trim() }
+        "kubeconform" { return (& kubeconform -v 2>$null | Out-String).Trim() }
         "helm"    { return (& helm version --short 2>$null | Out-String).Trim() }
         "git"     { return (& git --version 2>$null | Out-String).Trim() }
         "docker"  { return (& docker --version 2>$null | Out-String).Trim() }

@@ -3,7 +3,10 @@ param(
     [string]$RenderedPath,
 
     [switch]$Strict,
-    [switch]$ValidateCrdBackedResources
+    [switch]$ValidateCrdBackedResources,
+
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto"
 )
 
 Set-StrictMode -Version Latest
@@ -18,19 +21,61 @@ function Get-RelativePathFromRoot {
         [string]$Path
     )
 
-    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd('\') + '\'
+    $separator = [System.IO.Path]::DirectorySeparatorChar
+    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd([char[]]@('\', '/')) + $separator
     $resolvedPath = [System.IO.Path]::GetFullPath($Path)
     return $resolvedPath.Substring($resolvedRoot.Length)
 }
 
-$kubectl = Get-Command kubectl -ErrorAction SilentlyContinue
-if ($null -eq $kubectl) {
-    Write-Warning "kubectl is not installed. Skipping rendered manifest validation."
-    if ($Strict) {
-        throw "kubectl is required for rendered manifest validation."
+function Get-RenderedManifestValidator {
+    param(
+        [string]$RequestedValidator,
+        [switch]$Strict
+    )
+
+    $kubeconform = Get-Command kubeconform -ErrorAction SilentlyContinue
+    $kubectl = Get-Command kubectl -ErrorAction SilentlyContinue
+
+    if ($RequestedValidator -eq "kubeconform") {
+        if ($null -ne $kubeconform) {
+            return "kubeconform"
+        }
+
+        if ($Strict) {
+            throw "kubeconform is required for rendered manifest validation."
+        }
+
+        Write-Warning "kubeconform is not installed. Skipping rendered manifest validation."
+        return ""
     }
 
-    return
+    if ($RequestedValidator -eq "kubectl") {
+        if ($null -ne $kubectl) {
+            return "kubectl"
+        }
+
+        if ($Strict) {
+            throw "kubectl is required for rendered manifest validation."
+        }
+
+        Write-Warning "kubectl is not installed. Skipping rendered manifest validation."
+        return ""
+    }
+
+    if ($null -ne $kubeconform) {
+        return "kubeconform"
+    }
+
+    if ($null -ne $kubectl) {
+        return "kubectl"
+    }
+
+    if ($Strict) {
+        throw "kubeconform or kubectl is required for rendered manifest validation."
+    }
+
+    Write-Warning "Neither kubeconform nor kubectl is installed. Skipping rendered manifest validation."
+    return ""
 }
 
 $root = (Resolve-Path -Path $RenderedPath).Path
@@ -87,6 +132,13 @@ if (Test-Path -Path $bootstrapSecretRoot -PathType Container) {
 $validated = New-Object System.Collections.Generic.List[object]
 $skipped = New-Object System.Collections.Generic.List[object]
 $failed = New-Object System.Collections.Generic.List[object]
+$validator = Get-RenderedManifestValidator -RequestedValidator $SchemaValidator -Strict:$Strict
+
+if (-not $validator) {
+    return
+}
+
+Write-Host ("Rendered manifest validator: {0}" -f $validator)
 
 foreach ($target in $validationTargets) {
     if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
@@ -98,7 +150,13 @@ foreach ($target in $validationTargets) {
         continue
     }
 
-    $output = & kubectl apply --dry-run=client --validate=true -f $target.File 2>&1 | Out-String
+    if ($validator -eq "kubeconform") {
+        $output = & kubeconform -strict -summary $target.File 2>&1 | Out-String
+    }
+    else {
+        $output = & kubectl apply --dry-run=client --validate=true -f $target.File 2>&1 | Out-String
+    }
+
     if ($LASTEXITCODE -eq 0) {
         $validated.Add([PSCustomObject]@{
             Category = $target.Category
