@@ -8,6 +8,8 @@ Profiles describe reusable bundle shapes. A profile decides the broad layout of 
 
 - `minimal-application`: base namespaces and storage only
 - `developer-sandbox`: compact sandbox with common platform pieces
+- `data-services`: shared database and cache baseline
+- `reverse-proxy-platform`: NGINX-centered edge stack
 - `web-platform`: gateway-oriented public web stack
 - `shared-services`: shared cluster baseline
 - `full`: everything in the repository
@@ -24,9 +26,13 @@ Choose based on the question you are trying to answer:
 
 - "What is the smallest usable template?" -> `minimal-application`
 - "What can I test quickly?" -> `developer-sandbox`
+- "What shared databases and caches are available?" -> `data-services`
+- "What is the simpler reverse-proxy option?" -> `reverse-proxy-platform`
 - "What should I use for a web-facing example stack?" -> `web-platform`
 - "What should I use for cluster-wide shared components?" -> `shared-services`
 
 ## Important Note
 
 Profiles do not have to be the final word. You can still add or remove applications and data services with command arguments after choosing a profile.
+
+Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values, representative applications, and representative data services.

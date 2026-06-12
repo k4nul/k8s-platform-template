@@ -18,11 +18,14 @@ This directory contains the main entry-point scripts for inspecting, validating,
 
 - `validate-template.ps1`: validate repository structure and example assets
 - `invoke-repository-validation.ps1`: run the main validation flow
+- `validate-render-matrix.ps1`: render and validate public-default profile and environment combinations
 - `validate-platform-assets.ps1`: validate rendered assets directly
 - `validate-kubernetes-security-baseline.ps1`: review rendered Kubernetes YAML for risky defaults and baseline gaps
 - `validate-workstation.ps1`: check local tools such as `kubectl`, `kubeconform`, and `helm`
 
 Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows.
+
+`validate-template.ps1` calls `validate-render-matrix.ps1` after the first smoke render. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
 
 ### Render And Deliver
 
@@ -36,6 +39,7 @@ Rendered manifest schema validation uses `kubeconform` when it is available and 
 ```powershell
 .\scripts\show-profile-catalog.ps1 -Format markdown
 .\scripts\new-platform-environment.ps1 -EnvironmentPreset dev -EnvironmentName dev -Force
+.\scripts\validate-render-matrix.ps1
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 .\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
 ```

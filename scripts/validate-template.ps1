@@ -59,6 +59,7 @@ $expectedPaths = @(
     "scripts\validate-service-builds.ps1",
     "scripts\show-service-build-plan.ps1",
     "scripts\validate-rendered-bundle.ps1",
+    "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1"
 )
 
@@ -74,6 +75,7 @@ $selectionValidation = Join-Path $root "scripts\validate-platform-selection.ps1"
 $valueValidation = Join-Path $root "scripts\validate-platform-values.ps1"
 $renderScript = Join-Path $root "scripts\render-platform-assets.ps1"
 $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
+$renderMatrixValidation = Join-Path $root "scripts\validate-render-matrix.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 
@@ -138,37 +140,9 @@ try {
         -Applications nginx-web,httpbin,whoami `
         -DataServices redis
 
-    $renderMatrix = @(
-        @{
-            Name = "data-services"
-            Profile = "data-services"
-            Applications = @()
-            DataServices = @("mysql", "postgresql", "redis")
-        },
-        @{
-            Name = "shared-services"
-            Profile = "shared-services"
-            Applications = @("nginx-web", "adminer")
-            DataServices = @("postgresql", "redis")
-        },
-        @{
-            Name = "full"
-            Profile = "full"
-            Applications = @("nginx-web", "httpbin", "whoami", "adminer")
-            DataServices = @("mysql", "postgresql", "redis")
-        }
-    )
-
-    foreach ($matrixEntry in $renderMatrix) {
-        Write-Host ("Validating render matrix profile: {0}" -f $matrixEntry.Name)
-        & $assetValidation `
-            -RepoRoot $root `
-            -ValuesFile $publicValuesFile `
-            -Version "0.0.0-check" `
-            -Profile $matrixEntry.Profile `
-            -Applications @($matrixEntry.Applications) `
-            -DataServices @($matrixEntry.DataServices)
-    }
+    & $renderMatrixValidation `
+        -RepoRoot $root `
+        -ValuesFile $publicValuesFile
 }
 finally {
     if (Test-Path -LiteralPath $tempOutput) {

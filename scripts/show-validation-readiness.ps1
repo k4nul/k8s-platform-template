@@ -59,6 +59,67 @@ function Get-RelativePathFromRoot {
     return $resolvedPath.Substring($resolvedRoot.Length)
 }
 
+function Get-BuiltInApiGroups {
+    return @(
+        "admissionregistration.k8s.io",
+        "apiextensions.k8s.io",
+        "apiregistration.k8s.io",
+        "apps",
+        "authentication.k8s.io",
+        "authorization.k8s.io",
+        "autoscaling",
+        "batch",
+        "certificates.k8s.io",
+        "coordination.k8s.io",
+        "discovery.k8s.io",
+        "events.k8s.io",
+        "extensions",
+        "flowcontrol.apiserver.k8s.io",
+        "networking.k8s.io",
+        "node.k8s.io",
+        "policy",
+        "rbac.authorization.k8s.io",
+        "scheduling.k8s.io",
+        "storage.k8s.io"
+    )
+}
+
+function Normalize-ApiVersionValue {
+    param(
+        [string]$Value
+    )
+
+    if (-not $Value) {
+        return ""
+    }
+
+    $withoutComment = ($Value -split '\s+#', 2)[0].Trim()
+    return $withoutComment.Trim([char[]]@('"', "'"))
+}
+
+function Get-CrdBackedApiGroupsFromContent {
+    param(
+        [string]$Content
+    )
+
+    $builtInApiGroups = @(Get-BuiltInApiGroups)
+    $apiGroups = New-Object System.Collections.Generic.List[string]
+
+    foreach ($match in [regex]::Matches($Content, '(?m)^apiVersion:\s*(.+)$')) {
+        $apiVersion = Normalize-ApiVersionValue -Value $match.Groups[1].Value
+        if ($apiVersion -notmatch '^([^/]+)/') {
+            continue
+        }
+
+        $apiGroup = $Matches[1]
+        if ($builtInApiGroups -notcontains $apiGroup) {
+            $apiGroups.Add($apiGroup) | Out-Null
+        }
+    }
+
+    return @($apiGroups | Sort-Object -Unique)
+}
+
 function Get-CrdBackedManifestEntries {
     param(
         [string]$Root,
@@ -77,16 +138,9 @@ function Get-CrdBackedManifestEntries {
             $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml") -and $_.Name -ne "values.yaml"
         } | ForEach-Object {
             $content = Get-Content -Path $_.FullName -Raw
-            $apiGroup = ""
+            $apiGroups = @(Get-CrdBackedApiGroupsFromContent -Content $content)
 
-            if ($content -match '(?m)^apiVersion:\s*gateway\.networking\.k8s\.io/') {
-                $apiGroup = "gateway.networking.k8s.io"
-            }
-            elseif ($content -match '(?m)^apiVersion:\s*autoscaling\.k8s\.io/') {
-                $apiGroup = "autoscaling.k8s.io"
-            }
-
-            if ($apiGroup) {
+            foreach ($apiGroup in $apiGroups) {
                 $entries += [PSCustomObject]@{
                     Directory = $directory
                     RelativePath = Get-RelativePathFromRoot -Root $Root -Path $_.FullName
@@ -96,7 +150,7 @@ function Get-CrdBackedManifestEntries {
         }
     }
 
-    return @($entries | Sort-Object RelativePath -Unique)
+    return @($entries | Sort-Object RelativePath, ApiGroup -Unique)
 }
 
 function Get-ValidationCommandLine {

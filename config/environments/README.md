@@ -43,3 +43,13 @@ That means you can start from `dev` and still override:
 - output paths
 
 without editing the preset file immediately.
+
+## Validation Matrix
+
+Template validation uses `ValidationValuesFile` when it renders an environment preset for repository checks. The bundled presets point that field at `config/platform-values.env.example`, which keeps public validation independent from local `platform-values.<env>.env` files that may contain site-specific hostnames, storage paths, or secret placeholders.
+
+Run the preset matrix directly with:
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+```
