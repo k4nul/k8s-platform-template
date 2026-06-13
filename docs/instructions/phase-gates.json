@@ -1,0 +1,98 @@
+{
+  "schema_version": "1.0.0",
+  "project": "devops/k8s-platform-template",
+  "current_phase": "profile-render-validation",
+  "next_phase": "schema-security-baseline",
+  "transition": {
+    "intent": "Move to schema-security-baseline only after profile/environment render validation is stable for public defaults.",
+    "mode": "machine-gated-template-readiness",
+    "validation_command": "pwsh -NoProfile -File scripts/validate-template.ps1",
+    "transition_validation_command": "pwsh -NoProfile -File scripts/validate-template.ps1",
+    "decision_rule": "All required gates must be passed, machine-checkable, or waived before changing current_phase."
+  },
+  "phase_model": [
+    {
+      "id": "profile-render-validation",
+      "purpose": "Validate core profile and environment render paths without private cluster assumptions.",
+      "allowed_work": [
+        "template validation",
+        "profile matrix coverage",
+        "environment render validation"
+      ],
+      "blocked_work": [
+        "live cluster dependency",
+        "private image defaults",
+        "committed rendered bundles"
+      ],
+      "exit_criteria": [
+        "template validation passes",
+        "profile matrix covers core profiles"
+      ]
+    },
+    {
+      "id": "schema-security-baseline",
+      "purpose": "Add schema validation and reviewable security baseline gates for rendered bundles.",
+      "allowed_work": [
+        "kubeconform or equivalent schema validation",
+        "securityContext checks",
+        "resources/probes/RBAC/NetworkPolicy review gates"
+      ],
+      "blocked_work": [
+        "required live cluster access"
+      ],
+      "exit_criteria": [
+        "schema validation gate is defined",
+        "security baseline gate is defined",
+        "rendered outputs remain untracked"
+      ]
+    },
+    {
+      "id": "template-maintenance",
+      "purpose": "Maintain the public Kubernetes platform template after readiness gates are complete.",
+      "allowed_work": [
+        "maintenance-audit",
+        "security-review",
+        "docs-update"
+      ],
+      "blocked_work": [
+        "new platform scope without an explicit phase"
+      ],
+      "exit_criteria": [
+        "new template scope is selected"
+      ]
+    }
+  ],
+  "required_gates": [
+    {
+      "id": "template-validation-passes",
+      "status": "machine-check",
+      "required_for_transition": true,
+      "description": "The template validation command must pass.",
+      "evidence": [
+        "pwsh -NoProfile -File scripts/validate-template.ps1"
+      ]
+    },
+    {
+      "id": "profile-matrix-covers-core-profiles",
+      "status": "pending",
+      "required_for_transition": true,
+      "description": "The render validation matrix must cover core profiles.",
+      "evidence": [
+        "scripts/validate-template.ps1"
+      ],
+      "on_failure": "Stay in profile-render-validation and add core profile matrix coverage."
+    },
+    {
+      "id": "rendered-outputs-untracked",
+      "status": "machine-check",
+      "required_for_transition": true,
+      "description": "Rendered output, kubeconfig, and secret artifacts must remain untracked.",
+      "evidence": [
+        "out",
+        ".kube",
+        "secrets",
+        "cluster-bootstrap"
+      ]
+    }
+  ]
+}
