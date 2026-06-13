@@ -4,33 +4,6 @@ $ErrorActionPreference = "Stop"
 $script:TestsRun = 0
 $script:TestsFailed = 0
 
-function Get-ScriptFunctionDefinitionText {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    $tokens = $null
-    $parseErrors = $null
-    $ast = [System.Management.Automation.Language.Parser]::ParseFile($Path, [ref]$tokens, [ref]$parseErrors)
-
-    if ($parseErrors.Count -gt 0) {
-        throw ("Unable to parse {0}: {1}" -f $Path, ($parseErrors.Message -join "; "))
-    }
-
-    $functionDefinitions = @(
-        $ast.FindAll(
-            {
-                param($node)
-                $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
-            },
-            $true
-        )
-    )
-
-    return @($functionDefinitions | ForEach-Object { $_.Extent.Text })
-}
-
 function Assert-Equal {
     param(
         [object]$Expected,
@@ -97,14 +70,11 @@ function Invoke-Test {
 }
 
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
-. (Join-Path $repoRoot "scripts\environment-preset.ps1")
-foreach ($functionDefinitionText in @(Get-ScriptFunctionDefinitionText -Path (Join-Path $repoRoot "scripts\validate-render-matrix.ps1"))) {
-    . ([scriptblock]::Create($functionDefinitionText))
-}
+. (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 
-Invoke-Test -Name "Normalize-List trims comma-delimited values and skips blanks" -Body {
+Invoke-Test -Name "ConvertTo-RenderMatrixList trims comma-delimited values and skips blanks" -Body {
     $actual = @(
-        Normalize-List -Values @(
+        ConvertTo-RenderMatrixList -Values @(
             "nginx-web, httpbin",
             $null,
             "",

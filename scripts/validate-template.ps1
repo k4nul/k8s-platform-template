@@ -59,6 +59,7 @@ $expectedPaths = @(
     "scripts\validate-service-builds.ps1",
     "scripts\show-service-build-plan.ps1",
     "scripts\validate-rendered-bundle.ps1",
+    "scripts\render-matrix-catalog.ps1",
     "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1",
     "tests\validate-render-manifests.Tests.ps1",
@@ -77,6 +78,7 @@ $selectionValidation = Join-Path $root "scripts\validate-platform-selection.ps1"
 $valueValidation = Join-Path $root "scripts\validate-platform-values.ps1"
 $renderScript = Join-Path $root "scripts\render-platform-assets.ps1"
 $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
+$renderMatrixCatalog = Join-Path $root "scripts\render-matrix-catalog.ps1"
 $renderMatrixValidation = Join-Path $root "scripts\validate-render-matrix.ps1"
 $renderManifestsTests = Join-Path $root "tests\validate-render-manifests.Tests.ps1"
 $renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
@@ -93,7 +95,7 @@ $coreRenderMatrixProfiles = @(
 )
 
 foreach ($profileName in $coreRenderMatrixProfiles) {
-    Assert-FileContains -Path $renderMatrixValidation -Pattern ([regex]::Escape($profileName)) -Label "Core render matrix profile coverage"
+    Assert-FileContains -Path $renderMatrixCatalog -Pattern ([regex]::Escape($profileName)) -Label "Core render matrix profile coverage"
 }
 
 $securityBaselineTerms = @(
