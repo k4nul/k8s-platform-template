@@ -82,6 +82,16 @@ $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-secur
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
 
+$coreRenderMatrixProfiles = @(
+    "data-services",
+    "shared-services",
+    "full"
+)
+
+foreach ($profileName in $coreRenderMatrixProfiles) {
+    Assert-FileContains -Path $renderMatrixValidation -Pattern ([regex]::Escape($profileName)) -Label "Core render matrix profile coverage"
+}
+
 $securityBaselineTerms = @(
     "securityContext",
     "resources",

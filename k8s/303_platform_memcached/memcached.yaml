@@ -15,6 +15,9 @@ spec:
       labels:
         app: memcached
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: memcached
         image: memcached:1.6-alpine

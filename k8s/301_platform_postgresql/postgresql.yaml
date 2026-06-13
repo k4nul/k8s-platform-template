@@ -16,6 +16,9 @@ spec:
       labels:
         app: postgresql
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgresql
         image: postgres:16-alpine

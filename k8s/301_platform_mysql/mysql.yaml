@@ -6,6 +6,7 @@ metadata:
   name: mysql
   namespace: mysql
 spec:
+  serviceName: mysql
   replicas: 1
   revisionHistoryLimit: 10
   selector:
@@ -16,6 +17,9 @@ spec:
       labels:
         app: mysql
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - env:
         - name: MYSQL_ROOT_PASSWORD

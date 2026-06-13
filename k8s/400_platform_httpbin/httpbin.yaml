@@ -15,6 +15,9 @@ spec:
       labels:
         app: httpbin
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: httpbin
         image: mccutchen/go-httpbin:v2.15.0
