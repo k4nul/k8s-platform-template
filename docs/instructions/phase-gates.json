@@ -74,11 +74,13 @@
     },
     {
       "id": "profile-matrix-covers-core-profiles",
-      "status": "pending",
+      "status": "machine-check",
       "required_for_transition": true,
       "description": "The render validation matrix must cover core profiles.",
       "evidence": [
-        "scripts/validate-template.ps1"
+        "scripts/validate-render-matrix.ps1",
+        "tests/validate-render-matrix.Tests.ps1",
+        "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
       "on_failure": "Stay in profile-render-validation and add core profile matrix coverage."
     },

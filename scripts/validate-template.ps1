@@ -60,7 +60,8 @@ $expectedPaths = @(
     "scripts\show-service-build-plan.ps1",
     "scripts\validate-rendered-bundle.ps1",
     "scripts\validate-render-matrix.ps1",
-    "scripts\validate-kubernetes-security-baseline.ps1"
+    "scripts\validate-kubernetes-security-baseline.ps1",
+    "tests\validate-render-matrix.Tests.ps1"
 )
 
 foreach ($relativePath in $expectedPaths) {
@@ -76,6 +77,7 @@ $valueValidation = Join-Path $root "scripts\validate-platform-values.ps1"
 $renderScript = Join-Path $root "scripts\render-platform-assets.ps1"
 $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
 $renderMatrixValidation = Join-Path $root "scripts\validate-render-matrix.ps1"
+$renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 
@@ -104,6 +106,7 @@ foreach ($term in $securityBaselineTerms) {
     Assert-FileContains -Path $securityBaselineValidation -Pattern $term -Label "Kubernetes security baseline validation gate"
 }
 
+& $renderMatrixTests
 & $serviceCatalogValidation -RepoRoot $root
 & $serviceBuildValidation -RepoRoot $root
 & $serviceConfigValidation -RepoRoot $root -ValuesFile $publicValuesFile
