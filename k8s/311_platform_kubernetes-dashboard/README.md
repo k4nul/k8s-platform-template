@@ -22,7 +22,8 @@ kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy
 
 Kubernetes Dashboard currently supports logging in with a bearer token.
 
-If you use the sample admin manifest in this directory, retrieve a token with:
+The sample admin manifest in this directory is not copied into generated bundles
+by default. If you manually apply it after review, retrieve a token with:
 
 ```powershell
 kubectl -n kubernetes-dashboard create token admin-user

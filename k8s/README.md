@@ -48,6 +48,11 @@ Example preview:
 - shared infrastructure such as namespaces and storage
 - platform services such as MySQL, PostgreSQL, Redis, Memcached, and NGINX
 - optional add-on value scaffolds for components such as ExternalDNS, Harbor, Longhorn, Dashboard, and VPA
+- manual follow-up examples such as dashboard admin access and VPA sample objects
 - public-image sample applications
 
 Each component directory has its own `README.md` for local context.
+
+Manual follow-up examples are documented by the platform plan but are excluded
+from generated bundles by default. Apply them only after reviewing the component
+README and the target cluster policy.

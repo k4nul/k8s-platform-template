@@ -9,6 +9,7 @@ param(
 
     [string]$Version,
     [string]$ValuesFile,
+    [string[]]$ExcludeRelativePath = @(),
     [switch]$FailOnUnresolvedToken
 )
 
@@ -41,9 +42,28 @@ function Render-ManifestFile {
     return $DestinationPath
 }
 
+function Get-NormalizedRelativePathKey {
+    param(
+        [string]$Path
+    )
+
+    if (-not $Path) {
+        return ""
+    }
+
+    return $Path.Replace('\', '/').TrimStart('/').ToLowerInvariant()
+}
+
 $resolvedInput = (Resolve-Path -Path $InputPath).Path
 $replacementMap = Get-TemplateReplacementMap -ValuesFile $ValuesFile -DockerRegistry $DockerRegistry -Version $Version
 $renderedPaths = New-Object System.Collections.Generic.List[string]
+$excludedRelativePathMap = @{}
+foreach ($path in @($ExcludeRelativePath)) {
+    $pathKey = Get-NormalizedRelativePathKey -Path $path
+    if ($pathKey) {
+        $excludedRelativePathMap[$pathKey] = $true
+    }
+}
 
 if (Test-Path -Path $resolvedInput -PathType Leaf) {
     $renderedPaths.Add(
@@ -58,6 +78,12 @@ else {
         $_.Extension -in @(".yaml", ".yml")
     } | ForEach-Object {
         $relativePath = Get-RelativePathCompat -BasePath $sourceRoot -TargetPath $_.FullName
+        $relativePathKey = Get-NormalizedRelativePathKey -Path $relativePath
+        if ($excludedRelativePathMap.ContainsKey($relativePathKey)) {
+            Write-Host ("Skipped optional manifest: {0}" -f $relativePath)
+            return
+        }
+
         $destinationPath = Join-Path -Path $targetRoot -ChildPath $relativePath
         $renderedPaths.Add(
             (Render-ManifestFile -SourcePath $_.FullName -DestinationPath $destinationPath -ReplacementMap $replacementMap)

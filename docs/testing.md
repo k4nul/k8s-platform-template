@@ -59,6 +59,11 @@ The bundled preset coverage is:
 
 The profile matrix adds representative application and data-service combinations for `minimal-application`, `developer-sandbox`, `data-services`, `reverse-proxy-platform`, `web-platform`, `shared-services`, and `full`.
 
+Optional follow-up manifests are intentionally excluded from generated bundles
+during matrix validation. The source files remain available for manual review,
+but public-default renders should not package high-privilege samples such as the
+Kubernetes Dashboard admin user.
+
 ## Rendered Manifest Schema Validation
 
 Rendered YAML validation is handled by `scripts/validate-rendered-bundle.ps1`, usually through `validate-platform-assets.ps1`.

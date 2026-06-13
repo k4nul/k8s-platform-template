@@ -46,6 +46,8 @@ $serviceDependencyPlanScript = Join-Path $root "scripts\show-service-dependency-
 $serviceInputPlanScript = Join-Path $root "scripts\show-service-input-plan.ps1"
 $serviceRuntimePlanScript = Join-Path $root "scripts\show-service-runtime-plan.ps1"
 $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
+$optionalManifestCatalog = Get-PlatformOptionalManifestCatalog
+$optionalManifestPaths = @($optionalManifestCatalog.Keys)
 
 New-Item -ItemType Directory -Path $renderedRoot -Force | Out-Null
 
@@ -59,16 +61,24 @@ if ($selection.IncludeAllK8s) {
         -DockerRegistry $DockerRegistry `
         -Version $Version `
         -ValuesFile $ValuesFile `
+        -ExcludeRelativePath $optionalManifestPaths `
         -FailOnUnresolvedToken:$FailOnUnresolvedToken
 }
 else {
     foreach ($directory in $selection.K8sDirectories) {
+        $excludedDirectoryManifests = @(
+            $optionalManifestPaths |
+                Where-Object { ($_ -split "[\\/]", 2)[0] -eq $directory } |
+                ForEach-Object { ($_ -split "[\\/]", 2)[1] }
+        )
+
         & $k8sRenderScript `
             -InputPath (Join-Path $root ("k8s\{0}" -f $directory)) `
             -OutputPath (Join-Path $renderedK8sRoot $directory) `
             -DockerRegistry $DockerRegistry `
             -Version $Version `
             -ValuesFile $ValuesFile `
+            -ExcludeRelativePath $excludedDirectoryManifests `
             -FailOnUnresolvedToken:$FailOnUnresolvedToken
     }
 }

@@ -12,7 +12,7 @@ Profiles describe reusable bundle shapes. A profile decides the broad layout of 
 - `reverse-proxy-platform`: NGINX-centered edge stack
 - `web-platform`: gateway-oriented public web stack
 - `shared-services`: shared cluster baseline
-- `full`: everything in the repository
+- `full`: every standard component directory and service template; optional follow-up manifests stay manual
 
 ## How To Choose One
 
@@ -36,3 +36,7 @@ Choose based on the question you are trying to answer:
 Profiles do not have to be the final word. You can still add or remove applications and data services with command arguments after choosing a profile.
 
 Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values, representative applications, and representative data services.
+
+Optional follow-up manifests, such as the Kubernetes Dashboard sample admin
+user and the VPA example object, are listed in platform plans but are not copied
+into generated bundles by default.

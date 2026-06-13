@@ -1,9 +1,9 @@
 @{
-    Description = "Render the full repository, including every Kubernetes manifest and every service template."
-    PrimaryUse = "Repository-wide audit, validation, and exploratory rendering mode that intentionally includes everything."
+    Description = "Render every standard Kubernetes component directory and service template while keeping optional follow-up manifests manual."
+    PrimaryUse = "Repository-wide audit, validation, and exploratory rendering mode for standard bundle contents."
     RecommendedFor = @(
         "Repository maintenance and template audits",
-        "Exploratory reviews when you want to inspect every component together",
+        "Exploratory reviews when you want to inspect every standard component together",
         "Validation flows that should touch the broadest possible repository surface"
     )
     AvoidWhen = @(
