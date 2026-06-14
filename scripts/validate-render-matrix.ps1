@@ -17,40 +17,13 @@ if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
 
 $root = (Resolve-Path -Path $RepoRoot).Path
 $defaultValuesFile = "config\platform-values.env.example"
-$matrixValuesFile = if ($ValuesFile) { $ValuesFile } else { $defaultValuesFile }
 $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
-
-$matrixEntries = New-Object System.Collections.Generic.List[object]
-$environmentMatrixParameters = @{
-    Root = $root
-    DefaultValuesFile = $defaultValuesFile
-}
-
-if ($ValuesFile) {
-    $environmentMatrixParameters.OverrideValuesFile = $ValuesFile
-}
-
-foreach ($entry in @(Get-EnvironmentRenderMatrix @environmentMatrixParameters)) {
-    $matrixEntries.Add($entry) | Out-Null
-}
-
-$profileEntries = @(Get-ProfileRenderMatrix -ValuesFile $matrixValuesFile)
-$profileNames = @(
-    Get-ChildItem -Path (Join-Path $root "config\profiles") -File -Filter "*.psd1" |
-        Sort-Object BaseName |
-        Select-Object -ExpandProperty BaseName
+$matrixEntries = @(
+    Get-RenderValidationMatrix `
+        -Root $root `
+        -DefaultValuesFile $defaultValuesFile `
+        -ValuesFile $ValuesFile
 )
-$matrixProfileNames = @($profileEntries | Select-Object -ExpandProperty Name)
-$missingProfileNames = @($profileNames | Where-Object { $_ -notin $matrixProfileNames })
-$extraProfileNames = @($matrixProfileNames | Where-Object { $_ -notin $profileNames })
-
-if ($missingProfileNames.Count -gt 0 -or $extraProfileNames.Count -gt 0) {
-    throw ("Profile render matrix does not match config/profiles. Missing: {0}. Extra: {1}." -f (Get-RenderMatrixListText -Values $missingProfileNames), (Get-RenderMatrixListText -Values $extraProfileNames))
-}
-
-foreach ($entry in $profileEntries) {
-    $matrixEntries.Add($entry) | Out-Null
-}
 
 Write-Host "Render validation matrix"
 Write-Host ("- Repository root: {0}" -f $root)

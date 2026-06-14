@@ -169,6 +169,38 @@ Invoke-Test -Name "Environment render matrix prefers validation values and suppo
     }
 }
 
+Invoke-Test -Name "Combined render validation matrix is ordered and overrideable" -Body {
+    $defaultValuesFile = "config\platform-values.env.example"
+    $entries = @(Get-RenderValidationMatrix -Root $repoRoot -DefaultValuesFile $defaultValuesFile)
+    $expectedEnvironmentNames = @(
+        Get-ChildItem -Path (Join-Path $repoRoot "config\environments") -File -Filter "*.psd1" |
+            Sort-Object BaseName |
+            Select-Object -ExpandProperty BaseName
+    )
+    $expectedProfileNames = @(
+        Get-ProfileRenderMatrix -ValuesFile $defaultValuesFile |
+            Select-Object -ExpandProperty Name
+    )
+    $expectedNames = @($expectedEnvironmentNames) + @($expectedProfileNames)
+    $expectedScopes = @()
+
+    foreach ($name in $expectedEnvironmentNames) {
+        $expectedScopes += "environment"
+    }
+
+    foreach ($name in $expectedProfileNames) {
+        $expectedScopes += "profile"
+    }
+
+    Assert-SequenceEqual -Expected $expectedNames -Actual @($entries | Select-Object -ExpandProperty Name) -Message "Combined matrix names should list environments before profiles."
+    Assert-SequenceEqual -Expected $expectedScopes -Actual @($entries | Select-Object -ExpandProperty Scope) -Message "Combined matrix scopes should preserve the environment/profile split."
+
+    $overrideEntries = @(Get-RenderValidationMatrix -Root $repoRoot -DefaultValuesFile $defaultValuesFile -ValuesFile "custom.env")
+    foreach ($entry in $overrideEntries) {
+        Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
+    }
+}
+
 if ($script:TestsFailed -gt 0) {
     throw ("{0} of {1} render matrix test(s) failed." -f $script:TestsFailed, $script:TestsRun)
 }

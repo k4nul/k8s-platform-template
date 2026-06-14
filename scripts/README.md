@@ -35,6 +35,8 @@ Rendered manifest schema validation uses `kubeconform` when it is available and 
 
 `validate-template.ps1` calls `validate-render-matrix.ps1` after the first smoke render. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
 
+The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip when neither `kubeconform` nor `kubectl` is installed; strict validation is expected to fail until one of those tools is available.
+
 See [../docs/testing.md](../docs/testing.md) for the command matrix, validator fallback rules, CRD-backed resource behavior, and Kubernetes security baseline findings.
 
 ### Render And Deliver

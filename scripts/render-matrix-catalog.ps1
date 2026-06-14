@@ -218,3 +218,49 @@ function Get-EnvironmentRenderMatrix {
 
     return $entries.ToArray()
 }
+
+function Get-RenderValidationMatrix {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [string]$DefaultValuesFile = "config\platform-values.env.example",
+
+        [string]$ValuesFile
+    )
+
+    $matrixEntries = New-Object System.Collections.Generic.List[object]
+    $matrixValuesFile = if ($ValuesFile) { $ValuesFile } else { $DefaultValuesFile }
+    $environmentMatrixParameters = @{
+        Root = $Root
+        DefaultValuesFile = $DefaultValuesFile
+    }
+
+    if ($ValuesFile) {
+        $environmentMatrixParameters.OverrideValuesFile = $ValuesFile
+    }
+
+    foreach ($entry in @(Get-EnvironmentRenderMatrix @environmentMatrixParameters)) {
+        $matrixEntries.Add($entry) | Out-Null
+    }
+
+    $profileEntries = @(Get-ProfileRenderMatrix -ValuesFile $matrixValuesFile)
+    $profileNames = @(
+        Get-ChildItem -Path (Join-Path $Root "config\profiles") -File -Filter "*.psd1" |
+            Sort-Object BaseName |
+            Select-Object -ExpandProperty BaseName
+    )
+    $matrixProfileNames = @($profileEntries | Select-Object -ExpandProperty Name)
+    $missingProfileNames = @($profileNames | Where-Object { $_ -notin $matrixProfileNames })
+    $extraProfileNames = @($matrixProfileNames | Where-Object { $_ -notin $profileNames })
+
+    if ($missingProfileNames.Count -gt 0 -or $extraProfileNames.Count -gt 0) {
+        throw ("Profile render matrix does not match config/profiles. Missing: {0}. Extra: {1}." -f (Get-RenderMatrixListText -Values $missingProfileNames), (Get-RenderMatrixListText -Values $extraProfileNames))
+    }
+
+    foreach ($entry in $profileEntries) {
+        $matrixEntries.Add($entry) | Out-Null
+    }
+
+    return $matrixEntries.ToArray()
+}

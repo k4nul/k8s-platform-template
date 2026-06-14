@@ -48,6 +48,7 @@ Use `validate-template.ps1` as the lightweight repository gate before changing s
 - Each bundled environment preset points `ValidationValuesFile` at `config/platform-values.env.example`.
 - Profile entries cover every file under `config/profiles/*.psd1`.
 - The matrix fails if a profile exists in `config/profiles/` but is missing from the scripted profile matrix.
+- The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
 
 The bundled preset coverage is:
 
@@ -76,6 +77,8 @@ Selection behavior:
 - Strict validation fails when no schema validator is available.
 
 CRD-backed resources are skipped by default because public repository validation should not require cluster-installed CRDs. Add `-ValidateCrdBackedResources` only after the required CRDs are available to the selected validator.
+
+The rendered-bundle validator tests cover the no-validator path directly: default template validation may skip schema validation with a warning, while `-Strict` must fail until `kubeconform` or `kubectl` is available.
 
 ## Kubernetes Security Baseline
 
