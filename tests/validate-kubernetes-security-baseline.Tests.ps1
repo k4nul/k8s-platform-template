@@ -100,6 +100,26 @@ function New-TestBootstrapSecretBundle {
         -NoNewline
 }
 
+function New-TestKubernetesBundle {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Manifests
+    )
+
+    $k8sRoot = Join-Path $Root "k8s"
+    New-Item -ItemType Directory -Path $k8sRoot -Force | Out-Null
+
+    foreach ($manifestName in $Manifests.Keys) {
+        Set-Content `
+            -Path (Join-Path $k8sRoot $manifestName) `
+            -Value $Manifests[$manifestName] `
+            -NoNewline
+    }
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 $securityBaselineScript = Join-Path $repoRoot "scripts\validate-kubernetes-security-baseline.ps1"
 
@@ -197,6 +217,124 @@ Invoke-Test -Name "Security baseline scans rendered bootstrap Secret templates" 
         }
 
         Assert-True -Condition $failed -Message "Bootstrap Secret templates should be part of the security baseline scan."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline allows hardened workload with NetworkPolicy without gap findings" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "deployment.yaml" = "apiVersion: apps/v1`nkind: Deployment`nmetadata:`n  name: hardened-web`nspec:`n  replicas: 1`n  selector:`n    matchLabels:`n      app: hardened-web`n  template:`n    metadata:`n      labels:`n        app: hardened-web`n    spec:`n      securityContext:`n        runAsNonRoot: true`n      containers:`n        - name: web`n          image: nginx:1.25.4`n          securityContext:`n            allowPrivilegeEscalation: false`n          resources:`n            requests:`n              cpu: 50m`n              memory: 64Mi`n            limits:`n              cpu: 250m`n              memory: 128Mi`n          readinessProbe:`n            httpGet:`n              path: /`n              port: 80`n          livenessProbe:`n            httpGet:`n              path: /`n              port: 80`n"
+                "networkpolicy.yaml" = "apiVersion: networking.k8s.io/v1`nkind: NetworkPolicy`nmetadata:`n  name: hardened-web-default-deny`nspec:`n  podSelector:`n    matchLabels:`n      app: hardened-web`n  policyTypes:`n    - Ingress`n"
+            }
+
+        & $securityBaselineScript -Path $testRoot -FailOnMediumFinding 3>&1 2>&1 | Out-String | Out-Null
+        Assert-True -Condition $true -Message "A hardened workload with NetworkPolicy should not report baseline gaps."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline fail-on-medium blocks workload posture gaps" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "deployment.yaml" = "apiVersion: apps/v1`nkind: Deployment`nmetadata:`n  name: incomplete-web`nspec:`n  replicas: 1`n  selector:`n    matchLabels:`n      app: incomplete-web`n  template:`n    metadata:`n      labels:`n        app: incomplete-web`n    spec:`n      containers:`n        - name: web`n          image: nginx:1.25.4`n"
+                "networkpolicy.yaml" = "apiVersion: networking.k8s.io/v1`nkind: NetworkPolicy`nmetadata:`n  name: incomplete-web-default-deny`nspec:`n  podSelector:`n    matchLabels:`n      app: incomplete-web`n  policyTypes:`n    - Ingress`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot 3>&1 2>&1 | Out-String)
+        Assert-Contains -Content $output -Expected "missing-container-resources" -Message "Missing resources should be reported for workloads."
+        Assert-Contains -Content $output -Expected "missing-security-context" -Message "Missing securityContext should be reported for workloads."
+        Assert-Contains -Content $output -Expected "missing-readiness-probe" -Message "Missing readiness probes should be reported for workloads."
+        Assert-Contains -Content $output -Expected "missing-liveness-probe" -Message "Missing liveness probes should be reported for workloads."
+
+        $failed = $false
+        try {
+            & $securityBaselineScript -Path $testRoot -FailOnMediumFinding 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "high or medium" `
+                -Message "FailOnMediumFinding should block workload posture gaps."
+            $failed = $true
+        }
+
+        Assert-True -Condition $failed -Message "FailOnMediumFinding should fail when workload posture gaps are present."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline reports high-risk workload defaults without failing by default" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "deployment.yaml" = "apiVersion: apps/v1`nkind: Deployment`nmetadata:`n  name: risky-web`nspec:`n  replicas: 1`n  selector:`n    matchLabels:`n      app: risky-web`n  template:`n    metadata:`n      labels:`n        app: risky-web`n    spec:`n      hostNetwork: true`n      containers:`n        - name: web`n          image: nginx:latest`n          securityContext:`n            privileged: true`n            allowPrivilegeEscalation: true`n          volumeMounts:`n            - name: host-root`n              mountPath: /host`n      volumes:`n        - name: host-root`n          hostPath:`n            path: /`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot 3>&1 2>&1 | Out-String)
+
+        Assert-Contains -Content $output -Expected "privileged-container" -Message "Privileged containers should be reported."
+        Assert-Contains -Content $output -Expected "privilege-escalation" -Message "Privilege escalation should be reported."
+        Assert-Contains -Content $output -Expected "host-namespace" -Message "Host namespace usage should be reported."
+        Assert-Contains -Content $output -Expected "host-path-volume" -Message "hostPath volumes should be reported."
+        Assert-Contains -Content $output -Expected "latest-image-tag" -Message "Mutable latest tags should be reported."
+        Assert-Contains -Content $output -Expected "missing-container-resources" -Message "Missing resources should be reported for workloads."
+        Assert-Contains -Content $output -Expected "missing-readiness-probe" -Message "Missing readiness probes should be reported for workloads."
+        Assert-Contains -Content $output -Expected "missing-liveness-probe" -Message "Missing liveness probes should be reported for workloads."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline fail-on-high blocks cluster-admin bindings" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "clusterrolebinding.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRoleBinding`nmetadata:`n  name: unsafe-admin-binding`nsubjects:`n  - kind: ServiceAccount`n    name: unsafe-admin`n    namespace: default`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: cluster-admin`n"
+            }
+
+        $failed = $false
+        try {
+            & $securityBaselineScript -Path $testRoot -FailOnHighFinding 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "high-severity" `
+                -Message "FailOnHighFinding should block high-severity RBAC findings."
+            $failed = $true
+        }
+
+        Assert-True -Condition $failed -Message "FailOnHighFinding should fail when a cluster-admin binding is present."
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {
