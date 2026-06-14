@@ -37,7 +37,9 @@ Rendered manifest schema validation uses `kubeconform` when it is available and 
 
 The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip when neither `kubeconform` nor `kubectl` is installed; strict validation is expected to fail until one of those tools is available.
 
-See [../docs/testing.md](../docs/testing.md) for the command matrix, validator fallback rules, CRD-backed resource behavior, and Kubernetes security baseline findings.
+`invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine.
+
+See [../docs/testing.md](../docs/testing.md) for the command matrix, validator fallback rules, CRD-backed resource behavior, and Kubernetes security baseline findings. See [../docs/troubleshooting.md](../docs/troubleshooting.md) for common missing-tool and generated-bundle validation failures.
 
 ### Render And Deliver
 
@@ -52,6 +54,7 @@ See [../docs/testing.md](../docs/testing.md) for the command matrix, validator f
 .\scripts\show-profile-catalog.ps1 -Format markdown
 .\scripts\new-platform-environment.ps1 -EnvironmentPreset dev -EnvironmentName dev -Force
 .\scripts\validate-render-matrix.ps1
+.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 .\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
 ```

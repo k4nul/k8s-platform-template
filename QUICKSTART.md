@@ -16,6 +16,7 @@ Recommended tools:
 - Docker if you want to run the local compose examples
 
 You can still explore the repository without every tool installed, but some validation steps will be skipped.
+For exact missing-tool behavior, see [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## 1. Review The Available Shapes
 
@@ -79,12 +80,15 @@ This step answers two questions before rendering:
 
 ```powershell
 .\scripts\validate-template.ps1
+.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 ```
 
 Use `validate-template.ps1` for template-level sanity checks.
 
-Use `invoke-repository-validation.ps1` when you want the more realistic repository workflow, including workstation and rendered-asset checks.
+Use `show-validation-readiness.ps1` to see which rendered-bundle checks are available on the current workstation.
+
+Use `invoke-repository-validation.ps1` when you want the more realistic repository workflow, including workstation and rendered-asset checks. This command runs strict workstation validation by default, so install `kubectl` and `helm` first or intentionally pass `-SkipWorkstationValidation` for a repository-only run.
 The preset validation path intentionally uses `config/platform-values.env.example` unless you pass `-ValuesFile`.
 After editing `config/platform-values.dev.env`, validate the edited file explicitly:
 
@@ -94,7 +98,7 @@ After editing `config/platform-values.dev.env`, validate the edited file explici
   -ValuesFile config\platform-values.dev.env
 ```
 
-See [docs/testing.md](docs/testing.md) for the public-default render matrix, schema validation fallback, CRD-backed resource behavior, and Kubernetes security baseline checks.
+See [docs/testing.md](docs/testing.md) for the public-default render matrix, schema validation fallback, CRD-backed resource behavior, and Kubernetes security baseline checks. See [docs/troubleshooting.md](docs/troubleshooting.md) when validation is blocked by workstation tools or generated-bundle readiness.
 
 ## 5. Render A Bundle
 
@@ -142,11 +146,15 @@ Repeat the same pattern in:
 Typical order after rendering:
 
 ```powershell
+.\out\delivery\dev\validate-bundle.ps1
+.\out\delivery\dev\cluster-bootstrap\check-secret-templates.ps1
 .\out\delivery\dev\cluster-bootstrap\status-secrets.ps1
 .\out\delivery\dev\apply-manifests.ps1
 .\out\delivery\dev\install-helm-components.ps1 -PrepareRepos
 .\out\delivery\dev\status-bundle.ps1
 ```
+
+Edit generated bootstrap secret templates before applying them. Use `status-secrets.ps1 -FailOnMissing` when the rollout should stop until namespaces and secrets are present.
 
 If you only want the sample applications:
 
@@ -167,3 +175,4 @@ If you want Jenkins jobs for the repository, use `../jenkins-pipeline-template`.
 - Manifests and rollout phases: [k8s/README.md](k8s/README.md)
 - Local examples: [services/README.md](services/README.md)
 - Scripts: [scripts/README.md](scripts/README.md)
+- Validation troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)
