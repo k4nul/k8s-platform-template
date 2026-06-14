@@ -113,7 +113,7 @@ The rendered-bundle validator tests cover the no-validator path directly: defaul
 It reports:
 
 - high-severity defaults such as privileged containers, host namespace access, `hostPath` volumes, and `cluster-admin` bindings
-- medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, and skipped TLS verification
+- medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 
 By default the script reports findings without failing the run. Use `-FailOnHighSecurityBaselineFinding` with `validate-render-matrix.ps1` or `validate-platform-assets.ps1` when high-severity findings should block the validation command.

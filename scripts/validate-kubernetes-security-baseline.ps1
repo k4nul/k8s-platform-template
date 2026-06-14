@@ -120,21 +120,184 @@ function Add-RegexFinding {
     }
 }
 
+function Get-IndentLength {
+    param(
+        [string]$Line
+    )
+
+    $match = [regex]::Match($Line, '^(\s*)')
+    return $match.Groups[1].Value.Length
+}
+
+function Remove-YamlScalarQuotes {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) {
+        return ""
+    }
+
+    $trimmedValue = $Value.Trim()
+    if ($trimmedValue.Length -ge 2) {
+        $firstCharacter = $trimmedValue.Substring(0, 1)
+        $lastCharacter = $trimmedValue.Substring($trimmedValue.Length - 1, 1)
+
+        if (($firstCharacter -eq '"' -and $lastCharacter -eq '"') -or
+            ($firstCharacter -eq "'" -and $lastCharacter -eq "'")) {
+            return $trimmedValue.Substring(1, $trimmedValue.Length - 2)
+        }
+    }
+
+    return $trimmedValue
+}
+
+function Get-SecretDataEntries {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Content
+    )
+
+    $entries = New-Object System.Collections.Generic.List[object]
+    $lines = [regex]::Split($Content, "\r?\n")
+    $section = ""
+    $sectionIndent = -1
+
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if (-not $line.Trim()) {
+            continue
+        }
+
+        if ($line -match '^(\s*)(data|stringData):\s*(?:#.*)?$') {
+            $section = $Matches[2]
+            $sectionIndent = $Matches[1].Length
+            continue
+        }
+
+        if (-not $section) {
+            continue
+        }
+
+        $indent = Get-IndentLength -Line $line
+        if ($indent -le $sectionIndent) {
+            $section = ""
+            $sectionIndent = -1
+            continue
+        }
+
+        if ($line -notmatch '^\s+([^:#][^:]*):\s*(.*)$') {
+            continue
+        }
+
+        $key = Remove-YamlScalarQuotes -Value $Matches[1]
+        $value = $Matches[2].Trim()
+        if ($value -match '^[|>][-+]?$') {
+            $blockLines = New-Object System.Collections.Generic.List[string]
+            $valueIndent = $indent
+
+            for ($blockIndex = $index + 1; $blockIndex -lt $lines.Count; $blockIndex++) {
+                $blockLine = $lines[$blockIndex]
+                if (-not $blockLine.Trim()) {
+                    $blockLines.Add("") | Out-Null
+                    continue
+                }
+
+                $blockIndent = Get-IndentLength -Line $blockLine
+                if ($blockIndent -le $valueIndent) {
+                    break
+                }
+
+                $blockLines.Add($blockLine.Trim()) | Out-Null
+            }
+
+            $value = ($blockLines -join "`n")
+        }
+
+        $entries.Add([PSCustomObject]@{
+            Section = $section
+            Key = $key
+            Value = Remove-YamlScalarQuotes -Value $value
+            Line = ($index + 1)
+        }) | Out-Null
+    }
+
+    return $entries.ToArray()
+}
+
+function Test-SensitiveSecretKey {
+    param(
+        [string]$Key
+    )
+
+    return ($Key -match '(?i)(password|passwd|pwd|token|secret|credential|private|tls\.key|\.dockerconfigjson|auth|key$)')
+}
+
+function Test-PlaceholderSecretValue {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if (-not $Value) {
+        return $true
+    }
+
+    $normalizedValue = $Value.Trim()
+    $placeholderPatterns = @(
+        '^__[A-Z0-9_]+__$',
+        '^\$VERSION$',
+        '(?i)^change-me-[a-z0-9-]+$',
+        'REPLACE_WITH_[A-Z0-9_]+',
+        'BASE64_ENCODED_[A-Z0-9_]+',
+        '\{HTPASSWD_OUTPUT\}',
+        'example\.com',
+        '^<[^>]+>$'
+    )
+
+    foreach ($pattern in $placeholderPatterns) {
+        if ($normalizedValue -match $pattern) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
 if (-not $PSBoundParameters.ContainsKey("Path") -or -not $Path) {
     $Path = Join-Path $PSScriptRoot ".."
 }
 
 $root = (Resolve-Path -Path $Path).Path
 $k8sRootCandidate = Join-Path $root "k8s"
-$scanRoot = if (Test-Path -Path $k8sRootCandidate -PathType Container) {
+$hasK8sRoot = Test-Path -Path $k8sRootCandidate -PathType Container
+$primaryScanRoot = if ($hasK8sRoot) {
     $k8sRootCandidate
 }
 else {
     $root
 }
 
+$scanRoots = New-Object System.Collections.Generic.List[string]
+$scanRoots.Add($primaryScanRoot) | Out-Null
+
+if ($hasK8sRoot) {
+    $bootstrapSecretRoot = Join-Path $root "cluster-bootstrap\secrets"
+    if (Test-Path -Path $bootstrapSecretRoot -PathType Container) {
+        $scanRoots.Add($bootstrapSecretRoot) | Out-Null
+    }
+}
+
+$candidateYamlFiles = New-Object System.Collections.Generic.List[object]
+foreach ($scanRoot in $scanRoots.ToArray()) {
+    Get-ChildItem -Path $scanRoot -Recurse -File | ForEach-Object {
+        $candidateYamlFiles.Add($_) | Out-Null
+    }
+}
+
 $yamlFiles = @(
-    Get-ChildItem -Path $scanRoot -Recurse -File |
+    $candidateYamlFiles.ToArray() |
         Where-Object {
             $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml") -and
             $_.Name -ne "values.yaml"
@@ -143,7 +306,7 @@ $yamlFiles = @(
 )
 
 if ($yamlFiles.Count -eq 0) {
-    throw "No Kubernetes YAML files were found under $scanRoot."
+    throw ("No Kubernetes YAML files were found under {0}." -f ($scanRoots.ToArray() -join ", "))
 }
 
 $findings = New-Object System.Collections.Generic.List[object]
@@ -155,6 +318,27 @@ foreach ($file in $yamlFiles) {
 
     if ($content -match '(?m)^kind:\s*NetworkPolicy\s*$') {
         $hasNetworkPolicy = $true
+    }
+
+    if ($content -match '(?m)^kind:\s*Secret\s*$') {
+        foreach ($entry in @(Get-SecretDataEntries -Content $content)) {
+            if (-not (Test-SensitiveSecretKey -Key $entry.Key)) {
+                continue
+            }
+
+            if (Test-PlaceholderSecretValue -Value $entry.Value) {
+                continue
+            }
+
+            Add-Finding `
+                -Findings $findings `
+                -Severity "medium" `
+                -Id "concrete-secret-template-value" `
+                -File $relativePath `
+                -Line $entry.Line `
+                -Message ("A Secret manifest contains a non-placeholder sensitive value for key '{0}'." -f $entry.Key) `
+                -Remediation "Keep repository and rendered bootstrap Secret templates placeholder-only; supply real values from untracked env files, external secret managers, or reviewed cluster bootstrap workflows."
+        }
     }
 
     Add-RegexFinding `
@@ -289,7 +473,7 @@ if (-not $hasNetworkPolicy) {
         -Findings $findings `
         -Severity "low" `
         -Id "missing-network-policy" `
-        -File (Get-RelativePathFromRoot -Root $root -Path $scanRoot) `
+        -File (Get-RelativePathFromRoot -Root $root -Path $primaryScanRoot) `
         -Message "No NetworkPolicy manifests were found in the scanned bundle." `
         -Remediation "Add environment-specific NetworkPolicy defaults or document why the selected cluster enforces network isolation elsewhere."
 }
