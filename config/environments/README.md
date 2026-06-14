@@ -46,7 +46,9 @@ without editing the preset file immediately.
 
 ## Validation Matrix
 
-Template validation uses `ValidationValuesFile` when it renders an environment preset for repository checks. The bundled presets point that field at `config/platform-values.env.example`, which keeps public validation independent from local `platform-values.<env>.env` files that may contain site-specific hostnames, storage paths, or secret placeholders.
+Template validation includes every `config/environments/*.psd1` file as an environment matrix entry. Values resolve in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then `config/platform-values.env.example`.
+
+The bundled presets point `ValidationValuesFile` at `config/platform-values.env.example`, which keeps public validation independent from local `platform-values.<env>.env` files that may contain site-specific hostnames, storage paths, or secret placeholders.
 
 After editing a generated environment values file, pass it explicitly:
 

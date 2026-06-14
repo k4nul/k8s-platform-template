@@ -35,7 +35,7 @@ Choose based on the question you are trying to answer:
 
 Profiles do not have to be the final word. You can still add or remove applications and data services with command arguments after choosing a profile.
 
-Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values. The representative applications and data services are declared in each profile file with `ValidationApplications` and `ValidationDataServices`, so profile ownership and validation coverage stay together.
+Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values. Every `config/profiles/*.psd1` file must declare `ValidationApplications` and `ValidationDataServices`, even when the list is empty, so profile ownership and validation coverage stay together. Profiles may also declare `ValidationIncludeJenkins` when Jenkins assets should be rendered as part of validation; the public profiles leave it disabled by default.
 
 Optional follow-up manifests, such as the Kubernetes Dashboard sample admin
 user and the VPA example object, are listed in platform plans but are not copied

@@ -13,6 +13,7 @@
 ## 프리셋이 주로 제어하는 값
 
 - `ValuesFile`: 기본 값 파일 경로
+- `ValidationValuesFile`: 공개 기본값으로 저장소 검증을 실행할 때 사용할 값 파일
 - `DockerRegistry`: 사설 이미지를 도입했을 때만 쓰는 선택형 레지스트리 호스트
 - `Version`: 기본 이미지 태그 또는 검증용 태그
 - `Profile`: 기본 번들 프로필
@@ -40,3 +41,23 @@
 - 출력 경로
 
 프리셋 파일을 바로 고치기 전에 명령줄에서 먼저 실험해보기에 좋습니다.
+
+## 검증 매트릭스
+
+템플릿 검증은 `config/environments/*.psd1`의 모든 프리셋을 환경 매트릭스 항목으로 렌더링합니다. 값 파일은 명시적인 `-ValuesFile`, `ValidationValuesFile`, `ValuesFile`, `config/platform-values.env.example` 순서로 결정됩니다.
+
+포함된 프리셋은 `ValidationValuesFile`을 `config/platform-values.env.example`로 지정합니다. 그래서 공개 검증은 로컬 `platform-values.<env>.env` 파일에 들어갈 수 있는 사이트별 호스트명, 스토리지 경로, 비밀값 자리표시에 의존하지 않습니다.
+
+생성한 환경 값 파일을 수정한 뒤 검증하려면 명시적으로 전달하세요.
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
+프리셋 매트릭스만 직접 실행할 수도 있습니다.
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+```

@@ -75,6 +75,8 @@
 .\scripts\validate-template.ps1
 ```
 
+이 명령은 공개 기본값으로 환경 프리셋과 프로필 렌더링 매트릭스를 함께 검증합니다. 자세한 매트릭스 동작, 스키마 검증기 동작, 보안 기준 검사는 [docs/testing.md](docs/testing.md)를 참고하세요. 로컬 도구 누락으로 실패한다면 [docs/troubleshooting.md](docs/troubleshooting.md)에서 템플릿 문제와 워크스테이션 준비 문제를 구분하세요.
+
 5. 번들 렌더링:
 
 ```powershell

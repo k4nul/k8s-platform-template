@@ -48,6 +48,29 @@ function Assert-False {
     }
 }
 
+function Assert-True {
+    param(
+        [bool]$Condition,
+        [string]$Message
+    )
+
+    if (-not $Condition) {
+        throw $Message
+    }
+}
+
+function Assert-Contains {
+    param(
+        [string]$Content,
+        [string]$Expected,
+        [string]$Message
+    )
+
+    if (-not $Content.Contains($Expected)) {
+        throw ("{0} Expected to find '{1}'." -f $Message, $Expected)
+    }
+}
+
 function Invoke-Test {
     param(
         [Parameter(Mandatory = $true)]
@@ -71,6 +94,7 @@ function Invoke-Test {
 
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
+$platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
 
 Invoke-Test -Name "ConvertTo-RenderMatrixList trims comma-delimited values and skips blanks" -Body {
     $actual = @(
@@ -214,6 +238,33 @@ Invoke-Test -Name "Combined render validation matrix is ordered and overrideable
     foreach ($entry in $overrideEntries) {
         Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
     }
+}
+
+Invoke-Test -Name "Strict platform asset validation promotes selection warnings before rendering" -Body {
+    $failed = $false
+
+    try {
+        & $platformAssetsValidation `
+            -RepoRoot $repoRoot `
+            -ValuesFile "config\platform-values.env.example" `
+            -Profile "minimal-application" `
+            -Applications @("nginx-web", "whoami") `
+            -DataServices @() `
+            -Strict 3>&1 2>&1 | Out-String | Out-Null
+    }
+    catch {
+        $failed = $true
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "Warnings promoted to errors" `
+            -Message "Strict asset validation should forward strict mode to platform selection."
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "missing recommended Kubernetes add-ons" `
+            -Message "Strict asset validation should fail on selection warnings before rendered schema validation."
+    }
+
+    Assert-True -Condition $failed -Message "Strict asset validation should fail on public profile selection warnings."
 }
 
 if ($script:TestsFailed -gt 0) {

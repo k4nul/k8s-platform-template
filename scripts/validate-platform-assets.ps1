@@ -54,7 +54,8 @@ $createdTempOutput = $false
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
-    -IncludeJenkins:$IncludeJenkins
+    -IncludeJenkins:$IncludeJenkins `
+    -Strict:$Strict
 
 if ($RequireBootstrapSecretsReady -and (-not $PSBoundParameters.ContainsKey("RenderedPath") -or -not $RenderedPath)) {
     throw "-RequireBootstrapSecretsReady requires -RenderedPath so the script can validate an already edited rendered bundle."

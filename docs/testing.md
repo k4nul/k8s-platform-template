@@ -62,9 +62,13 @@ The current phase gate for profile render validation is the template gate. It sh
 
 - Environment preset entries come from `config/environments/*.psd1`.
 - Each bundled environment preset points `ValidationValuesFile` at `config/platform-values.env.example`.
+- Environment entries resolve values in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then the default public values file.
+- Environment entries run before profile entries so preset drift is reported before profile-only coverage.
 - Profile entries cover every file under `config/profiles/*.psd1`.
 - Profile entries read `ValidationApplications` and `ValidationDataServices` from each profile file, keeping the public render-validation selection beside the profile owner metadata.
 - The matrix fails if a profile exists in `config/profiles/` but does not declare explicit public validation selections.
+- Profiles may opt into Jenkins rendering for validation with `ValidationIncludeJenkins`, but bundled public profiles leave it disabled by default.
+- An explicit `-ValuesFile` passed to `validate-render-matrix.ps1` applies to every environment and profile entry, which is useful when checking a generated values file before delivery.
 - The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
 
 The bundled preset coverage is:

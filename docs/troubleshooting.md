@@ -10,6 +10,11 @@ If the shell reports that `pwsh` is not found, install PowerShell 7 or run the s
 pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
+Automation shells that do not load an interactive profile may need `$HOME/.local/bin`
+on `PATH` before invoking `pwsh`. The project phase gate prefixes that user-local
+tool directory so a local PowerShell install is still discoverable without
+hardcoding a workstation-specific path.
+
 After PowerShell is available, rerun the same command from the repository root.
 
 ## Template Validation Warns About Missing Kubernetes Tools

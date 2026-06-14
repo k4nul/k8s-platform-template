@@ -6,8 +6,8 @@
   "transition": {
     "intent": "Move to schema-security-baseline only after profile/environment render validation is stable for public defaults.",
     "mode": "machine-gated-template-readiness",
-    "validation_command": "pwsh -NoProfile -File scripts/validate-template.ps1",
-    "transition_validation_command": "pwsh -NoProfile -File scripts/validate-template.ps1",
+    "validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
+    "transition_validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
     "decision_rule": "All required gates must be passed, machine-checkable, or waived before changing current_phase."
   },
   "phase_model": [
@@ -26,7 +26,7 @@
       ],
       "exit_criteria": [
         "template validation passes",
-        "profile matrix covers core profiles"
+        "render matrix covers every bundled environment preset and public profile"
       ]
     },
     {
@@ -76,13 +76,15 @@
       "id": "profile-matrix-covers-core-profiles",
       "status": "machine-check",
       "required_for_transition": true,
-      "description": "The render validation matrix must cover core profiles.",
+      "description": "The render validation matrix must cover every bundled environment preset and public profile.",
       "evidence": [
+        "config/environments/*.psd1",
+        "config/profiles/*.psd1",
         "scripts/validate-render-matrix.ps1",
         "tests/validate-render-matrix.Tests.ps1",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in profile-render-validation and add core profile matrix coverage."
+      "on_failure": "Stay in profile-render-validation and add environment/profile matrix coverage."
     },
     {
       "id": "rendered-outputs-untracked",
