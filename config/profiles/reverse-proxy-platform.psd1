@@ -15,6 +15,11 @@
         "whoami"
     )
     ExampleDataServices = @()
+    ValidationApplications = @(
+        "nginx-web",
+        "whoami"
+    )
+    ValidationDataServices = @()
     IncludeAllK8s = $false
     IncludeAllServices = $false
     K8sDirectories = @(

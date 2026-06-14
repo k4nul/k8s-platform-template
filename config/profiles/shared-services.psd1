@@ -18,6 +18,14 @@
         "postgresql",
         "redis"
     )
+    ValidationApplications = @(
+        "nginx-web",
+        "adminer"
+    )
+    ValidationDataServices = @(
+        "postgresql",
+        "redis"
+    )
     IncludeAllK8s = $false
     IncludeAllServices = $false
     K8sDirectories = @(

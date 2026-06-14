@@ -19,6 +19,15 @@
         "mysql",
         "redis"
     )
+    ValidationApplications = @(
+        "nginx-web",
+        "httpbin",
+        "whoami"
+    )
+    ValidationDataServices = @(
+        "mysql",
+        "redis"
+    )
     IncludeAllK8s = $false
     IncludeAllServices = $false
     K8sDirectories = @(

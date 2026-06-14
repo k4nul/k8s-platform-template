@@ -63,7 +63,8 @@ The current phase gate for profile render validation is the template gate. It sh
 - Environment preset entries come from `config/environments/*.psd1`.
 - Each bundled environment preset points `ValidationValuesFile` at `config/platform-values.env.example`.
 - Profile entries cover every file under `config/profiles/*.psd1`.
-- The matrix fails if a profile exists in `config/profiles/` but is missing from the scripted profile matrix.
+- Profile entries read `ValidationApplications` and `ValidationDataServices` from each profile file, keeping the public render-validation selection beside the profile owner metadata.
+- The matrix fails if a profile exists in `config/profiles/` but does not declare explicit public validation selections.
 - The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
 
 The bundled preset coverage is:
@@ -74,7 +75,7 @@ The bundled preset coverage is:
 | `staging` | `shared-services` | `nginx-web`, `httpbin`, `adminer` | `postgresql`, `redis` |
 | `prod` | `shared-services` | `nginx-web`, `whoami` | `postgresql`, `redis` |
 
-The profile matrix adds representative application and data-service combinations for every profile under `config/profiles/`. `scripts/render-matrix-catalog.ps1` fails if a profile file is added or removed without updating the matrix.
+The profile matrix adds representative application and data-service combinations for every profile under `config/profiles/`. `scripts/render-matrix-catalog.ps1` fails if a profile file is added without explicit `ValidationApplications` and `ValidationDataServices` metadata.
 
 | Profile | Applications | Data services |
 | --- | --- | --- |

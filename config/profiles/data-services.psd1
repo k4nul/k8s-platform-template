@@ -12,6 +12,12 @@
     )
     ExampleApplications = @()
     ExampleDataServices = @()
+    ValidationApplications = @()
+    ValidationDataServices = @(
+        "mysql",
+        "postgresql",
+        "redis"
+    )
     IncludeAllK8s = $false
     IncludeAllServices = $false
     K8sDirectories = @(

@@ -18,6 +18,14 @@
     ExampleDataServices = @(
         "redis"
     )
+    ValidationApplications = @(
+        "nginx-web",
+        "httpbin",
+        "whoami"
+    )
+    ValidationDataServices = @(
+        "redis"
+    )
     IncludeAllK8s = $false
     IncludeAllServices = $false
     K8sDirectories = @(

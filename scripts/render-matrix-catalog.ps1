@@ -1,6 +1,7 @@
 Set-StrictMode -Version Latest
 
 . (Join-Path $PSScriptRoot "environment-preset.ps1")
+. (Join-Path $PSScriptRoot "platform-catalog.ps1")
 
 function Resolve-RenderMatrixRepoPath {
     param(
@@ -56,7 +57,7 @@ function Get-RenderMatrixListText {
 
 function Get-MatrixString {
     param(
-        [hashtable]$Data,
+        [System.Collections.IDictionary]$Data,
         [string]$Key,
         [string]$Default = ""
     )
@@ -70,7 +71,7 @@ function Get-MatrixString {
 
 function Get-MatrixList {
     param(
-        [hashtable]$Data,
+        [System.Collections.IDictionary]$Data,
         [string]$Key
     )
 
@@ -83,11 +84,54 @@ function Get-MatrixList {
 
 function Get-MatrixFlag {
     param(
-        [hashtable]$Data,
+        [System.Collections.IDictionary]$Data,
         [string]$Key
     )
 
     return ($null -ne $Data -and $Data.ContainsKey($Key) -and [bool]$Data[$Key])
+}
+
+function Get-ProfileRenderMatrixNames {
+    param(
+        [System.Collections.IDictionary]$Profiles
+    )
+
+    $preferredOrder = @(
+        "minimal-application",
+        "developer-sandbox",
+        "data-services",
+        "reverse-proxy-platform",
+        "web-platform",
+        "shared-services",
+        "full"
+    )
+    $orderedNames = New-Object System.Collections.Generic.List[string]
+
+    foreach ($profileName in $preferredOrder) {
+        if ($Profiles.Contains($profileName)) {
+            $orderedNames.Add($profileName) | Out-Null
+        }
+    }
+
+    foreach ($profileName in @($Profiles.Keys | Where-Object { $_ -notin $preferredOrder } | Sort-Object)) {
+        $orderedNames.Add($profileName) | Out-Null
+    }
+
+    return @($orderedNames)
+}
+
+function Get-RequiredProfileMatrixList {
+    param(
+        [System.Collections.IDictionary]$Definition,
+        [string]$ProfileName,
+        [string]$Key
+    )
+
+    if (-not $Definition.Contains($Key)) {
+        throw ("Profile '{0}' is missing '{1}'. Add an explicit public render-validation selection in config/profiles/{0}.psd1." -f $ProfileName, $Key)
+    }
+
+    return @(Get-MatrixList -Data $Definition -Key $Key)
 }
 
 function New-RenderMatrixEntry {
@@ -122,58 +166,28 @@ function New-RenderMatrixEntry {
 
 function Get-ProfileRenderMatrix {
     param(
+        [string]$Root = (Join-Path $PSScriptRoot ".."),
+
         [Parameter(Mandatory = $true)]
         [string]$ValuesFile
     )
 
-    return @(
-        (New-RenderMatrixEntry `
+    $profiles = Get-PlatformProfileDefinitions -ProfileDirectory (Join-Path $Root "config\profiles")
+    $entries = New-Object System.Collections.Generic.List[object]
+
+    foreach ($profileName in (Get-ProfileRenderMatrixNames -Profiles $profiles)) {
+        $definition = $profiles[$profileName]
+        $entries.Add((New-RenderMatrixEntry `
             -Scope "profile" `
-            -Name "minimal-application" `
+            -Name $profileName `
             -ValuesFile $ValuesFile `
-            -Profile "minimal-application" `
-            -Applications @("nginx-web", "whoami")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "developer-sandbox" `
-            -ValuesFile $ValuesFile `
-            -Profile "developer-sandbox" `
-            -Applications @("nginx-web", "httpbin", "whoami") `
-            -DataServices @("mysql", "redis")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "data-services" `
-            -ValuesFile $ValuesFile `
-            -Profile "data-services" `
-            -DataServices @("mysql", "postgresql", "redis")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "reverse-proxy-platform" `
-            -ValuesFile $ValuesFile `
-            -Profile "reverse-proxy-platform" `
-            -Applications @("nginx-web", "whoami")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "web-platform" `
-            -ValuesFile $ValuesFile `
-            -Profile "web-platform" `
-            -Applications @("nginx-web", "httpbin", "whoami") `
-            -DataServices @("redis")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "shared-services" `
-            -ValuesFile $ValuesFile `
-            -Profile "shared-services" `
-            -Applications @("nginx-web", "adminer") `
-            -DataServices @("postgresql", "redis")),
-        (New-RenderMatrixEntry `
-            -Scope "profile" `
-            -Name "full" `
-            -ValuesFile $ValuesFile `
-            -Profile "full" `
-            -Applications @("nginx-web", "httpbin", "whoami", "adminer") `
-            -DataServices @("mysql", "postgresql", "redis"))
-    )
+            -Profile $profileName `
+            -Applications (Get-RequiredProfileMatrixList -Definition $definition -ProfileName $profileName -Key "ValidationApplications") `
+            -DataServices (Get-RequiredProfileMatrixList -Definition $definition -ProfileName $profileName -Key "ValidationDataServices") `
+            -IncludeJenkins:(Get-MatrixFlag -Data $definition -Key "ValidationIncludeJenkins"))) | Out-Null
+    }
+
+    return $entries.ToArray()
 }
 
 function Get-EnvironmentRenderMatrix {
@@ -244,7 +258,7 @@ function Get-RenderValidationMatrix {
         $matrixEntries.Add($entry) | Out-Null
     }
 
-    $profileEntries = @(Get-ProfileRenderMatrix -ValuesFile $matrixValuesFile)
+    $profileEntries = @(Get-ProfileRenderMatrix -Root $Root -ValuesFile $matrixValuesFile)
     $profileNames = @(
         Get-ChildItem -Path (Join-Path $Root "config\profiles") -File -Filter "*.psd1" |
             Sort-Object BaseName |

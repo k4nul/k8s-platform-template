@@ -130,6 +130,21 @@ Invoke-Test -Name "Profile render matrix covers every configured public profile"
         $entriesByName[$entry.Name] = $entry
     }
 
+    $profileDefinitions = Get-PlatformProfileDefinitions -ProfileDirectory (Join-Path $repoRoot "config\profiles")
+    foreach ($profileName in $expectedProfileNames) {
+        $definition = $profileDefinitions[$profileName]
+        $entry = $entriesByName[$profileName]
+
+        Assert-SequenceEqual `
+            -Expected @(ConvertTo-RenderMatrixList -Values @($definition["ValidationApplications"])) `
+            -Actual @($entry.Applications) `
+            -Message ("{0} should derive validation applications from profile metadata." -f $profileName)
+        Assert-SequenceEqual `
+            -Expected @(ConvertTo-RenderMatrixList -Values @($definition["ValidationDataServices"])) `
+            -Actual @($entry.DataServices) `
+            -Message ("{0} should derive validation data services from profile metadata." -f $profileName)
+    }
+
     Assert-SequenceEqual -Expected @("nginx-web", "whoami") -Actual @($entriesByName["minimal-application"].Applications) -Message "Minimal profile application defaults should stay public and small."
     Assert-SequenceEqual -Expected @() -Actual @($entriesByName["minimal-application"].DataServices) -Message "Minimal profile should not add data services."
     Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($entriesByName["web-platform"].Applications) -Message "Web platform profile should render public web demo apps."

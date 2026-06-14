@@ -35,7 +35,7 @@ Choose based on the question you are trying to answer:
 
 Profiles do not have to be the final word. You can still add or remove applications and data services with command arguments after choosing a profile.
 
-Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values, representative applications, and representative data services.
+Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values. The representative applications and data services are declared in each profile file with `ValidationApplications` and `ValidationDataServices`, so profile ownership and validation coverage stay together.
 
 Optional follow-up manifests, such as the Kubernetes Dashboard sample admin
 user and the VPA example object, are listed in platform plans but are not copied

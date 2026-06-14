@@ -12,6 +12,17 @@
     )
     ExampleApplications = @()
     ExampleDataServices = @()
+    ValidationApplications = @(
+        "nginx-web",
+        "httpbin",
+        "whoami",
+        "adminer"
+    )
+    ValidationDataServices = @(
+        "mysql",
+        "postgresql",
+        "redis"
+    )
     IncludeAllK8s = $true
     IncludeAllServices = $true
     K8sDirectories = @()
