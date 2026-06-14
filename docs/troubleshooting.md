@@ -47,6 +47,31 @@ If you are only checking repository structure and public-default rendering on a 
 
 Use `-SkipWorkstationValidation` only when the narrower repository-only scope is intentional and recorded in your validation notes.
 
+## Automation Still Reports Kubernetes Validation Failed
+
+The profile render phase transition uses the template gate, not the broader
+repository workflow:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+If automation or a progress dashboard still reports `kubernetes validation
+failed`, rerun that exact command from the repository root and compare it with
+the broader repository command:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+```
+
+A passing template gate means profile and environment render validation is ready
+for the `schema-security-baseline` phase. A failing repository workflow may still
+be a workstation readiness issue, because strict repository validation checks
+for tools such as `kubectl` and `helm`. Use
+`.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown`
+to separate missing local tools from template render failures before changing
+manifests.
+
 ## Edited Values Are Not Reflected
 
 Environment presets use `ValidationValuesFile` for repository validation when it is defined. The bundled presets point to `config/platform-values.env.example` so public validation does not depend on site-specific values.

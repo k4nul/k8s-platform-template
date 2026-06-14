@@ -33,11 +33,22 @@ Rendered bundles also include `VALIDATION_READINESS.md`, `CLUSTER_PREFLIGHT.md`,
 
 Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows.
 
-`validate-template.ps1` calls `validate-render-matrix.ps1` after the first smoke render. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
+`validate-template.ps1` checks required repository files, runs the lightweight PowerShell test suite, validates service catalogs and public values, performs one public smoke render, validates the rendered smoke bundle, and then calls `validate-render-matrix.ps1`. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
 
 The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip when neither `kubeconform` nor `kubectl` is installed; strict validation is expected to fail until one of those tools is available.
 
 `invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine.
+
+The current phase transition gate is the template validation command:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+When that command passes, the public profile and environment render matrix is
+stable enough for the next `schema-security-baseline` phase. Keep using
+`invoke-repository-validation.ps1` for delivery readiness, because it adds strict
+workstation and rendered-bundle checks on top of the template gate.
 
 See [../docs/testing.md](../docs/testing.md) for the command matrix, validator fallback rules, CRD-backed resource behavior, and Kubernetes security baseline findings. See [../docs/troubleshooting.md](../docs/troubleshooting.md) for common missing-tool and generated-bundle validation failures.
 

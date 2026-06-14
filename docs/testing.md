@@ -56,6 +56,44 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 
 The current phase gate for profile render validation is the template gate. It should pass before moving on to broader schema and security baseline work.
 
+## Profile Render Validation Phase Handoff
+
+The `profile-render-validation` phase is complete when the template gate passes
+from the repository root:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+That command is the machine-readable transition check in
+`docs/instructions/phase-gates.json`. It proves the public-default rendering
+path before the project moves to `schema-security-baseline` work.
+
+The phase gate currently covers:
+
+- required repository documentation, script, catalog, and test files
+- rendered manifest schema validator wiring, including the `kubeconform` first
+  path, `kubectl apply --dry-run=client --validate=true` fallback, non-strict
+  skip behavior, and strict failure behavior when no validator is available
+- Kubernetes security baseline test coverage for `securityContext`, resources,
+  readiness probes, liveness probes, NetworkPolicy review items, and concrete
+  sensitive Secret values
+- render-manifest, rendered-bundle, Kubernetes security baseline, and render
+  matrix PowerShell tests
+- service catalog, service build, service config artifact, service runtime,
+  platform selection, and platform values validation against public defaults
+- one public smoke render for the `web-platform` profile with `nginx-web`,
+  `httpbin`, `whoami`, and `redis`
+- rendered asset validation for the smoke bundle
+- render matrix validation for every bundled environment preset and every
+  public profile shape
+
+After this gate passes, keep profile and environment coverage stable while the
+next phase tightens schema validation and security baseline policy beyond the
+current non-strict/review defaults. Do not introduce a live cluster requirement,
+private image default, or committed rendered bundle as part of the phase
+transition.
+
 ## Public-Default Render Matrix
 
 `validate-template.ps1` calls `validate-render-matrix.ps1` after its smoke render. The matrix is intentionally public and generic:
@@ -111,6 +149,12 @@ CRD-backed resources are skipped by default because public repository validation
 
 The rendered-bundle validator tests cover the no-validator path directly: default template validation may skip schema validation with a warning, while `-Strict` must fail until `kubeconform` or `kubectl` is available.
 
+Use `validate-rendered-bundle.ps1 -SchemaValidator kubeconform` or
+`-SchemaValidator kubectl` only when you want to force one validator during
+debugging. The default `auto` mode should stay in normal repository validation
+so machines with `kubeconform` get offline schema checks and machines with only
+`kubectl` still exercise the client dry-run path.
+
 ## Kubernetes Security Baseline
 
 `validate-platform-assets.ps1` also runs `scripts/validate-kubernetes-security-baseline.ps1` against the rendered bundle. The baseline is a review gate, not a replacement for cluster admission policy.
@@ -122,6 +166,32 @@ It reports:
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 
 By default the script reports findings without failing the run. Use `-FailOnHighSecurityBaselineFinding` with `validate-render-matrix.ps1` or `validate-platform-assets.ps1` when high-severity findings should block the validation command.
+
+For direct baseline debugging, `validate-kubernetes-security-baseline.ps1` also
+supports `-FailOnHighFinding` and `-FailOnMediumFinding`. Use the medium-finding
+gate only for a deliberately hardened rendered bundle, because the public
+template may still report review items that need environment-specific decisions.
+
+## Bootstrap Secret Readiness
+
+Generated delivery bundles include bootstrap secret templates and helper
+scripts. The normal public validation path confirms that placeholder templates
+are generated safely; it does not require site-specific secret values to be
+filled in.
+
+Use bootstrap readiness validation only after rendering a bundle and editing its
+generated secret templates:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -RenderedPath out\delivery\dev `
+  -RequireBootstrapSecretsReady
+```
+
+At the lower platform-asset layer, `-RequireBootstrapSecretsReady` requires
+`-RenderedPath` because the script must inspect an already edited bundle instead
+of a temporary public-default render.
 
 ## Troubleshooting
 
