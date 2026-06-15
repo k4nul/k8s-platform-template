@@ -7,25 +7,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Get-RelativePathFromRoot {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Root,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    $resolvedRoot = [System.IO.Path]::GetFullPath($Root).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
-    $resolvedPath = [System.IO.Path]::GetFullPath($Path)
-    $rootPrefix = $resolvedRoot + [System.IO.Path]::DirectorySeparatorChar
-
-    if ($resolvedPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        return $resolvedPath.Substring($rootPrefix.Length)
-    }
-
-    return $resolvedPath
-}
+. (Join-Path $PSScriptRoot "kubernetes-manifest-utils.ps1")
 
 function Get-FirstMatchLineNumber {
     param(
