@@ -160,6 +160,7 @@ You normally do not need to edit the deeper `*.psd1` catalogs unless you are mai
 
 - Start quickly: [QUICKSTART.md](QUICKSTART.md)
 - Validation and testing: [docs/testing.md](docs/testing.md)
+- Dependency plan: [docs/dependency-plan.md](docs/dependency-plan.md)
 - Validation troubleshooting: [docs/troubleshooting.md](docs/troubleshooting.md)
 - Deployment environment notes: [DEPLOYMENT_ENV.md](DEPLOYMENT_ENV.md)
 - Environment checklist: [ENV_CHECKLIST.md](ENV_CHECKLIST.md)

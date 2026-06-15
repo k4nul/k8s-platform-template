@@ -215,3 +215,4 @@ If placeholder checks fail, replace environment-specific values in `config/platf
 Run placeholder scans against a customized values file or rendered bundle, not as a public-default repository validation gate.
 
 For common validation failures and the exact layer where they happen, see [troubleshooting.md](troubleshooting.md).
+For dependency inventory, toolchain constraints, and staged upgrade batches, see [dependency-plan.md](dependency-plan.md).
