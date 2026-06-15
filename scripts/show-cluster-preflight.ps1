@@ -421,7 +421,7 @@ function Get-PlatformClusterPreflightCatalog {
                 }
             )
             ManualChecks = @(
-                "Keep the sample cluster-admin dashboard user disabled outside controlled testing."
+                "Review the optional namespace-scoped dashboard viewer before applying it outside controlled testing."
             )
         }
         "312_platform_vertical-pod-autoscaler" = @{

@@ -22,15 +22,15 @@ kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy
 
 Kubernetes Dashboard currently supports logging in with a bearer token.
 
-The sample admin manifest in this directory is not copied into generated bundles
-by default. If you manually apply it after review, retrieve a token with:
+The sample viewer manifest in this directory is not copied into generated
+bundles by default. If you manually apply it after review, retrieve a token with:
 
 ```powershell
-kubectl -n kubernetes-dashboard create token admin-user
+kubectl -n kubernetes-dashboard create token viewer-user
 ```
 
 ## Notes
 
-- The sample admin user is intentionally high privilege and should be limited or removed in real environments.
+- The sample viewer user is namespace-scoped and should still be reviewed before use in real environments.
 - The chart already bundles Kong and can optionally bundle metrics-server, cert-manager, or nginx ingress, but this template assumes those are managed separately.
 - This template enables ingress but does not force any single ingress controller.

@@ -132,8 +132,8 @@ The profile matrix adds representative application and data-service combinations
 
 Optional follow-up manifests are intentionally excluded from generated bundles
 during matrix validation. The source files remain available for manual review,
-but public-default renders should not package high-privilege samples such as the
-Kubernetes Dashboard admin user.
+but public-default renders should not package optional follow-up resources such
+as the Kubernetes Dashboard viewer.
 
 ## Rendered Manifest Schema Validation
 

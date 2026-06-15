@@ -158,7 +158,7 @@ function Get-PlatformK8sComponentCatalog {
             PhaseId = "phase-b"
             PhaseName = "Phase B: Cluster Add-ons"
             Description = "Kubernetes Dashboard chart values."
-            Notes = "Optional sample admin manifest remains manual."
+            Notes = "Optional sample viewer manifest remains manual."
         }
         "312_platform_vertical-pod-autoscaler" = @{
             Delivery = "helm"
@@ -200,7 +200,7 @@ function Get-PlatformK8sComponentCatalog {
 
 function Get-PlatformOptionalManifestCatalog {
     return [ordered]@{
-        "311_platform_kubernetes-dashboard\sample-admin-user.yaml" = "Optional high-privilege dashboard access manifest. Use only for controlled testing."
+        "311_platform_kubernetes-dashboard\sample-viewer-user.yaml" = "Optional namespace-scoped dashboard viewer manifest. Review scope before use."
         "312_platform_vertical-pod-autoscaler\example-nginx-web-vpa.yaml" = "Optional example VPA object. Apply only after the VPA components are installed."
     }
 }
