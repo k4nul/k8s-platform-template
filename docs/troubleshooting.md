@@ -73,6 +73,9 @@ readiness issue, because strict repository validation checks for tools such as
 to separate missing local tools from template render failures before changing
 manifests.
 
+For the full evidence order used during recurring maintenance, including the
+readiness report and strict workstation check, see [maintenance.md](maintenance.md).
+
 ## Edited Values Are Not Reflected
 
 Environment presets use `ValidationValuesFile` for repository validation when it is defined. The bundled presets point to `config/platform-values.env.example` so public validation does not depend on site-specific values.

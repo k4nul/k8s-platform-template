@@ -58,6 +58,9 @@ The template gate is the continuing maintenance check for this repository. It
 also served as the completed `schema-security-baseline` transition gate before
 the project moved into `template-maintenance`.
 
+For the maintainer runbook that turns this gate into progress-dashboard
+evidence, see [maintenance.md](maintenance.md).
+
 ## Schema And Security Baseline Phase Handoff
 
 The `schema-security-baseline` phase moved to `template-maintenance` after the
@@ -216,4 +219,7 @@ If placeholder checks fail, replace environment-specific values in `config/platf
 Run placeholder scans against a customized values file or rendered bundle, not as a public-default repository validation gate.
 
 For common validation failures and the exact layer where they happen, see [troubleshooting.md](troubleshooting.md).
+
+For recurring template-maintenance validation evidence and guardrails, see [maintenance.md](maintenance.md).
+
 For dependency inventory, toolchain constraints, and staged upgrade batches, see [dependency-plan.md](dependency-plan.md).
