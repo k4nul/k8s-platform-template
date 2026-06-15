@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0.0",
   "project": "devops/k8s-platform-template",
-  "current_phase": "profile-render-validation",
-  "next_phase": "schema-security-baseline",
+  "current_phase": "schema-security-baseline",
+  "next_phase": "template-maintenance",
   "transition": {
-    "intent": "Move to schema-security-baseline only after profile/environment render validation is stable for public defaults.",
+    "intent": "Move to template-maintenance only after rendered schema validation and security baseline gates are stable for public defaults.",
     "mode": "machine-gated-template-readiness",
     "validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
     "transition_validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
@@ -76,7 +76,7 @@
       "id": "profile-matrix-covers-core-profiles",
       "status": "machine-check",
       "required_for_transition": true,
-      "description": "The render validation matrix must cover every bundled environment preset and public profile.",
+      "description": "The render validation matrix must keep covering every bundled environment preset and public profile.",
       "evidence": [
         "config/environments/*.psd1",
         "config/profiles/*.psd1",
@@ -84,7 +84,31 @@
         "tests/validate-render-matrix.Tests.ps1",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in profile-render-validation and add environment/profile matrix coverage."
+      "on_failure": "Stay in schema-security-baseline and restore environment/profile matrix coverage."
+    },
+    {
+      "id": "rendered-schema-validation-defined",
+      "status": "machine-check",
+      "required_for_transition": true,
+      "description": "The rendered bundle validator must keep a repository-local schema validation path without requiring a live cluster.",
+      "evidence": [
+        "scripts/validate-rendered-bundle.ps1",
+        "tests/validate-rendered-bundle.Tests.ps1",
+        "pwsh -NoProfile -File scripts/validate-template.ps1"
+      ],
+      "on_failure": "Stay in schema-security-baseline and restore kubeconform or kubectl client dry-run validation coverage."
+    },
+    {
+      "id": "security-baseline-validation-defined",
+      "status": "machine-check",
+      "required_for_transition": true,
+      "description": "The Kubernetes security baseline must keep review gates for workload hardening and concrete secret values.",
+      "evidence": [
+        "scripts/validate-kubernetes-security-baseline.ps1",
+        "tests/validate-kubernetes-security-baseline.Tests.ps1",
+        "pwsh -NoProfile -File scripts/validate-template.ps1"
+      ],
+      "on_failure": "Stay in schema-security-baseline and restore securityContext, resources, probes, NetworkPolicy, and Secret-template coverage."
     },
     {
       "id": "rendered-outputs-untracked",
