@@ -14,47 +14,63 @@ $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "kubernetes-manifest-utils.ps1")
 
+function Get-RenderedManifestValidatorDefinitions {
+    return @(
+        [PSCustomObject]@{
+            Name = "kubeconform"
+            Command = "kubeconform"
+            MissingStrictMessage = "kubeconform is required for rendered manifest validation."
+            MissingWarning = "kubeconform is not installed. Skipping rendered manifest validation."
+        },
+        [PSCustomObject]@{
+            Name = "kubectl"
+            Command = "kubectl"
+            MissingStrictMessage = "kubectl is required for rendered manifest validation."
+            MissingWarning = "kubectl is not installed. Skipping rendered manifest validation."
+        }
+    )
+}
+
+function Test-RenderedManifestValidatorAvailable {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Definition
+    )
+
+    return ($null -ne (Get-Command $Definition.Command -ErrorAction SilentlyContinue))
+}
+
 function Get-RenderedManifestValidator {
     param(
         [string]$RequestedValidator,
         [switch]$Strict
     )
 
-    $kubeconform = Get-Command kubeconform -ErrorAction SilentlyContinue
-    $kubectl = Get-Command kubectl -ErrorAction SilentlyContinue
+    $definitions = @(Get-RenderedManifestValidatorDefinitions)
+    $definitionsByName = @{}
 
-    if ($RequestedValidator -eq "kubeconform") {
-        if ($null -ne $kubeconform) {
-            return "kubeconform"
+    foreach ($definition in $definitions) {
+        $definitionsByName[$definition.Name] = $definition
+    }
+
+    if ($RequestedValidator -ne "auto") {
+        $requestedDefinition = $definitionsByName[$RequestedValidator]
+        if (Test-RenderedManifestValidatorAvailable -Definition $requestedDefinition) {
+            return $requestedDefinition.Name
         }
 
         if ($Strict) {
-            throw "kubeconform is required for rendered manifest validation."
+            throw $requestedDefinition.MissingStrictMessage
         }
 
-        Write-Warning "kubeconform is not installed. Skipping rendered manifest validation."
+        Write-Warning $requestedDefinition.MissingWarning
         return ""
     }
 
-    if ($RequestedValidator -eq "kubectl") {
-        if ($null -ne $kubectl) {
-            return "kubectl"
+    foreach ($definition in $definitions) {
+        if (Test-RenderedManifestValidatorAvailable -Definition $definition) {
+            return $definition.Name
         }
-
-        if ($Strict) {
-            throw "kubectl is required for rendered manifest validation."
-        }
-
-        Write-Warning "kubectl is not installed. Skipping rendered manifest validation."
-        return ""
-    }
-
-    if ($null -ne $kubeconform) {
-        return "kubeconform"
-    }
-
-    if ($null -ne $kubectl) {
-        return "kubectl"
     }
 
     if ($Strict) {
@@ -63,6 +79,26 @@ function Get-RenderedManifestValidator {
 
     Write-Warning "Neither kubeconform nor kubectl is installed. Skipping rendered manifest validation."
     return ""
+}
+
+function Invoke-RenderedManifestValidator {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Validator,
+
+        [Parameter(Mandatory = $true)]
+        [string]$File
+    )
+
+    if ($Validator -eq "kubeconform") {
+        return (& kubeconform -strict -summary $File 2>&1 | Out-String)
+    }
+
+    if ($Validator -eq "kubectl") {
+        return (& kubectl apply --dry-run=client --validate=true -f $File 2>&1 | Out-String)
+    }
+
+    throw ("Unsupported rendered manifest validator: {0}" -f $Validator)
 }
 
 $root = (Resolve-Path -Path $RenderedPath).Path
@@ -136,12 +172,7 @@ foreach ($target in $validationTargets) {
         continue
     }
 
-    if ($validator -eq "kubeconform") {
-        $output = & kubeconform -strict -summary $target.File 2>&1 | Out-String
-    }
-    else {
-        $output = & kubectl apply --dry-run=client --validate=true -f $target.File 2>&1 | Out-String
-    }
+    $output = Invoke-RenderedManifestValidator -Validator $validator -File $target.File
 
     if ($LASTEXITCODE -eq 0) {
         $validated.Add([PSCustomObject]@{

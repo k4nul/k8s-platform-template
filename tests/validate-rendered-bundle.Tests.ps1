@@ -131,6 +131,32 @@ Invoke-Test -Name "Rendered bundle validation fails without tools in strict mode
     }
 }
 
+Invoke-Test -Name "Rendered bundle validation fails clearly when requested kubectl is missing" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestRenderedBundle -Root $testRoot
+
+        $failed = Invoke-WithEmptyToolPath -Body {
+            try {
+                & $validateRenderedScript -RenderedPath $testRoot -SchemaValidator kubectl -Strict 3>&1 2>&1 | Out-String | Out-Null
+                return $false
+            }
+            catch {
+                Assert-Contains -Content $_.Exception.Message -Expected "kubectl is required" -Message "Requested kubectl validation should fail with a validator-specific message."
+                return $true
+            }
+        }
+
+        Assert-True -Condition $failed -Message "Strict requested kubectl validation should fail when kubectl is not installed."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 if ($script:TestsFailed -gt 0) {
     throw ("{0} of {1} rendered bundle validator test(s) failed." -f $script:TestsFailed, $script:TestsRun)
 }
