@@ -39,16 +39,18 @@ The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lig
 
 `invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine.
 
-The current phase transition gate is the template validation command:
+The current phase transition gate from `schema-security-baseline` to
+`template-maintenance` is the template validation command:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
-When that command passes, the public profile and environment render matrix is
-stable enough for the next `schema-security-baseline` phase. Keep using
+When that command passes, the public profile and environment render matrix,
+rendered schema validator wiring, and Kubernetes security baseline checks are
+stable enough for `template-maintenance`. Keep using
 `invoke-repository-validation.ps1` for delivery readiness, because it adds strict
-workstation and rendered-bundle checks on top of the template gate.
+workstation and selected rendered-bundle checks on top of the template gate.
 
 See [../docs/testing.md](../docs/testing.md) for the command matrix, validator fallback rules, CRD-backed resource behavior, and Kubernetes security baseline findings. See [../docs/troubleshooting.md](../docs/troubleshooting.md) for common missing-tool and generated-bundle validation failures.
 

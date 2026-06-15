@@ -54,20 +54,22 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 | Repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Template validation, strict workstation validation, and rendered bundle validation for one environment preset |
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
 
-The current phase gate for profile render validation is the template gate. It should pass before moving on to broader schema and security baseline work.
+The current phase gate for `schema-security-baseline` is the template gate. It
+should pass before the project moves into `template-maintenance`.
 
-## Profile Render Validation Phase Handoff
+## Schema And Security Baseline Phase Handoff
 
-The `profile-render-validation` phase is complete when the template gate passes
-from the repository root:
+The `schema-security-baseline` phase is ready for transition when the template
+gate passes from the repository root:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
 That command is the machine-readable transition check in
-`docs/instructions/phase-gates.json`. It proves the public-default rendering
-path before the project moves to `schema-security-baseline` work.
+`docs/instructions/phase-gates.json`. It proves the public-default render,
+schema-validation, and security-baseline paths before the project moves to
+`template-maintenance`.
 
 The phase gate currently covers:
 
@@ -89,10 +91,9 @@ The phase gate currently covers:
   public profile shape
 
 After this gate passes, keep profile and environment coverage stable while the
-next phase tightens schema validation and security baseline policy beyond the
-current non-strict/review defaults. Do not introduce a live cluster requirement,
-private image default, or committed rendered bundle as part of the phase
-transition.
+phase transition updates the project metadata. Do not introduce a live cluster
+requirement, private image default, or committed rendered bundle as part of the
+phase transition.
 
 ## Public-Default Render Matrix
 
