@@ -3,6 +3,8 @@ param(
     [string]$ValuesFile,
     [switch]$Strict,
     [switch]$ValidateCrdBackedResources,
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto",
     [switch]$FailOnHighSecurityBaselineFinding
 )
 
@@ -52,6 +54,7 @@ foreach ($entry in $matrixEntries) {
         -IncludeJenkins:$entry.IncludeJenkins `
         -Strict:$Strict `
         -ValidateCrdBackedResources:$ValidateCrdBackedResources `
+        -SchemaValidator $SchemaValidator `
         -FailOnHighSecurityBaselineFinding:$FailOnHighSecurityBaselineFinding
 
     Write-Host ("Completed render matrix {0}: {1}" -f $entry.Scope, $entry.Name)

@@ -99,7 +99,7 @@ The validator order is:
 3. A non-strict warning when neither tool is installed.
 4. A strict failure when neither tool is installed and strict validation is requested.
 
-Install `kubeconform` when you want repository-only schema validation without a live cluster dependency. Use `kubectl` when you also need cluster-side workflows.
+Install `kubeconform` when you want repository-only schema validation without a live cluster dependency. Use `kubectl` when you also need cluster-side workflows. If CI must prove one path specifically, pass `-SchemaValidator kubeconform` or `-SchemaValidator kubectl` to the top-level validation command; strict mode will fail clearly when that requested validator is unavailable.
 
 ## CRD-backed Resources Are Skipped
 

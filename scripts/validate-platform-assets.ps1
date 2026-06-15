@@ -12,6 +12,8 @@ param(
     [switch]$PrepareHelmRepos,
     [switch]$Strict,
     [switch]$ValidateCrdBackedResources,
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto",
     [switch]$FailOnHighSecurityBaselineFinding,
     [switch]$RequireBootstrapSecretsReady,
     [switch]$KeepRenderedOutput
@@ -96,7 +98,8 @@ try {
     & $validateRenderedScript `
         -RenderedPath $RenderedPath `
         -Strict:$Strict `
-        -ValidateCrdBackedResources:$ValidateCrdBackedResources
+        -ValidateCrdBackedResources:$ValidateCrdBackedResources `
+        -SchemaValidator $SchemaValidator
 
     & $securityBaselineValidationScript `
         -Path $RenderedPath `

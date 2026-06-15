@@ -1,5 +1,7 @@
 param(
-    [string]$RepoRoot
+    [string]$RepoRoot,
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto"
 )
 
 Set-StrictMode -Version Latest
@@ -164,11 +166,13 @@ try {
         -ValuesFile $publicValuesFile `
         -Profile web-platform `
         -Applications nginx-web,httpbin,whoami `
-        -DataServices redis
+        -DataServices redis `
+        -SchemaValidator $SchemaValidator
 
     & $renderMatrixValidation `
         -RepoRoot $root `
-        -ValuesFile $publicValuesFile
+        -ValuesFile $publicValuesFile `
+        -SchemaValidator $SchemaValidator
 }
 finally {
     if (Test-Path -LiteralPath $tempOutput) {

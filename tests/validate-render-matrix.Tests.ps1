@@ -92,10 +92,33 @@ function Invoke-Test {
     }
 }
 
+function Invoke-WithEmptyToolPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Body
+    )
+
+    $previousPath = $env:PATH
+    $toolPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-tools-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
+        $env:PATH = $toolPath
+        & $Body
+    }
+    finally {
+        $env:PATH = $previousPath
+        if (Test-Path -LiteralPath $toolPath) {
+            Remove-Item -LiteralPath $toolPath -Recurse -Force
+        }
+    }
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
 $renderMatrixValidation = Join-Path $repoRoot "scripts\validate-render-matrix.ps1"
+$repositoryValidation = Join-Path $repoRoot "scripts\invoke-repository-validation.ps1"
 
 Invoke-Test -Name "ConvertTo-RenderMatrixList trims comma-delimited values and skips blanks" -Body {
     $actual = @(
@@ -330,6 +353,77 @@ Invoke-Test -Name "Strict platform asset validation promotes selection warnings 
     }
 
     Assert-True -Condition $failed -Message "Strict asset validation should fail on public profile selection warnings."
+}
+
+Invoke-Test -Name "Platform asset validation forwards requested schema validator" -Body {
+    $failed = Invoke-WithEmptyToolPath -Body {
+        try {
+            & $platformAssetsValidation `
+                -RepoRoot $repoRoot `
+                -ValuesFile "config\platform-values.env.example" `
+                -Profile "data-services" `
+                -DataServices @("mysql") `
+                -SchemaValidator kubeconform `
+                -Strict 3>&1 2>&1 | Out-String | Out-Null
+            return $false
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "kubeconform is required" `
+                -Message "Requested kubeconform validation should be forwarded to rendered bundle validation."
+            return $true
+        }
+    }
+
+    Assert-True -Condition $failed -Message "Platform asset validation should fail when requested kubeconform is unavailable in strict mode."
+}
+
+Invoke-Test -Name "Render matrix validation forwards requested schema validator" -Body {
+    $failed = Invoke-WithEmptyToolPath -Body {
+        try {
+            & $renderMatrixValidation `
+                -RepoRoot $repoRoot `
+                -ValuesFile "config\platform-values.env.example" `
+                -SchemaValidator kubeconform `
+                -Strict 3>&1 2>&1 | Out-String | Out-Null
+            return $false
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "kubeconform is required" `
+                -Message "Render matrix validation should pass the requested schema validator to each platform asset check."
+            return $true
+        }
+    }
+
+    Assert-True -Condition $failed -Message "Render matrix validation should fail when requested kubeconform is unavailable in strict mode."
+}
+
+Invoke-Test -Name "Repository validation forwards requested schema validator" -Body {
+    $failed = Invoke-WithEmptyToolPath -Body {
+        try {
+            & $repositoryValidation `
+                -RepoRoot $repoRoot `
+                -Profile "data-services" `
+                -DataServices @("mysql") `
+                -SchemaValidator kubeconform `
+                -Strict `
+                -SkipTemplateValidation `
+                -SkipWorkstationValidation 3>&1 2>&1 | Out-String | Out-Null
+            return $false
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "kubeconform is required" `
+                -Message "Repository validation should pass the requested schema validator to rendered bundle validation."
+            return $true
+        }
+    }
+
+    Assert-True -Condition $failed -Message "Repository validation should fail when requested kubeconform is unavailable in strict mode."
 }
 
 if ($script:TestsFailed -gt 0) {

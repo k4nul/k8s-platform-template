@@ -31,7 +31,7 @@ Rendered bundles also include `VALIDATION_READINESS.md`, `CLUSTER_PREFLIGHT.md`,
 - `validate-kubernetes-security-baseline.ps1`: review rendered Kubernetes YAML for risky defaults and baseline gaps
 - `validate-workstation.ps1`: check local tools such as `kubectl`, `kubeconform`, and `helm`
 
-Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows.
+Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows. Use `-SchemaValidator kubeconform` or `-SchemaValidator kubectl` on the template, repository, matrix, or platform-asset validation commands when CI needs to pin a specific validator.
 
 `validate-template.ps1` checks required repository files, runs the lightweight PowerShell test suite, validates service catalogs and public values, performs one public smoke render, validates the rendered smoke bundle, and then calls `validate-render-matrix.ps1`. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
 

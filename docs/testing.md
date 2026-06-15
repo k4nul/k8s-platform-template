@@ -156,9 +156,13 @@ The rendered-bundle validator tests cover the no-validator path directly: defaul
 
 Use `validate-rendered-bundle.ps1 -SchemaValidator kubeconform` or
 `-SchemaValidator kubectl` only when you want to force one validator during
-debugging. The default `auto` mode should stay in normal repository validation
-so machines with `kubeconform` get offline schema checks and machines with only
-`kubectl` still exercise the client dry-run path.
+debugging. The same option is available on `validate-platform-assets.ps1`,
+`validate-render-matrix.ps1`, `validate-template.ps1`, and
+`invoke-repository-validation.ps1`, so CI can pin the intended Kubernetes
+validator at the top-level command instead of depending on leaf-script
+auto-selection. The default `auto` mode should stay in normal repository
+validation so machines with `kubeconform` get offline schema checks and machines
+with only `kubectl` still exercise the client dry-run path.
 
 ## Kubernetes Security Baseline
 

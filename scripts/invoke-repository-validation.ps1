@@ -14,6 +14,8 @@ param(
     [switch]$PrepareHelmRepos,
     [switch]$Strict,
     [switch]$ValidateCrdBackedResources,
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto",
     [switch]$RequireBootstrapSecretsReady,
     [switch]$SkipTemplateValidation,
     [switch]$SkipWorkstationValidation,
@@ -173,7 +175,7 @@ Write-Host ""
 
 if (-not $SkipTemplateValidation) {
     Invoke-ValidationStep -Title "Repository template validation" -Action {
-        & $templateValidationScript -RepoRoot $root
+        & $templateValidationScript -RepoRoot $root -SchemaValidator $SchemaValidator
     }
 }
 
@@ -196,6 +198,7 @@ if (-not $SkipPlatformAssetValidation) {
         PrepareHelmRepos = $PrepareHelmRepos
         Strict = $Strict
         ValidateCrdBackedResources = $ValidateCrdBackedResources
+        SchemaValidator = $SchemaValidator
     }
 
     if ($resolvedRenderedPath) {
