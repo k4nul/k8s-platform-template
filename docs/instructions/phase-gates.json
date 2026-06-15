@@ -1,14 +1,17 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "project": "devops/k8s-platform-template",
-  "current_phase": "schema-security-baseline",
-  "next_phase": "template-maintenance",
+  "current_phase": "template-maintenance",
+  "next_phase": "",
   "transition": {
-    "intent": "Move to template-maintenance only after rendered schema validation and security baseline gates are stable for public defaults.",
-    "mode": "machine-gated-template-readiness",
+    "intent": "Keep the public Kubernetes platform template in template-maintenance after profile render validation, rendered schema validation, and security baseline gates are stable for public defaults.",
+    "mode": "template-maintenance-no-pending-transition",
     "validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
-    "transition_validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
-    "decision_rule": "All required gates must be passed, machine-checkable, or waived before changing current_phase."
+    "transition_validation_command": "",
+    "phase_update_files": [
+      "docs/instructions/phase-gates.json"
+    ],
+    "decision_rule": "Select a new next_phase and transition_validation_command before routing another phase-transition."
   },
   "phase_model": [
     {

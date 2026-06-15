@@ -54,24 +54,25 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 | Repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Template validation, strict workstation validation, and rendered bundle validation for one environment preset |
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
 
-The current phase gate for `schema-security-baseline` is the template gate. It
-should pass before the project moves into `template-maintenance`.
+The template gate is the continuing maintenance check for this repository. It
+also served as the completed `schema-security-baseline` transition gate before
+the project moved into `template-maintenance`.
 
 ## Schema And Security Baseline Phase Handoff
 
-The `schema-security-baseline` phase is ready for transition when the template
-gate passes from the repository root:
+The `schema-security-baseline` phase moved to `template-maintenance` after the
+template gate passed from the repository root:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
-That command is the machine-readable transition check in
+That command remains the machine-readable maintenance validation command in
 `docs/instructions/phase-gates.json`. It proves the public-default render,
-schema-validation, and security-baseline paths before the project moves to
-`template-maintenance`.
+schema-validation, and security-baseline paths that allowed the project to move
+to `template-maintenance`.
 
-The phase gate currently covers:
+The maintenance gate currently covers:
 
 - required repository documentation, script, catalog, and test files
 - rendered manifest schema validator wiring, including the `kubeconform` first

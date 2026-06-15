@@ -49,8 +49,8 @@ Use `-SkipWorkstationValidation` only when the narrower repository-only scope is
 
 ## Automation Still Reports Kubernetes Validation Failed
 
-The `schema-security-baseline` to `template-maintenance` phase transition uses
-the template gate, not the broader repository workflow:
+The completed `schema-security-baseline` to `template-maintenance` phase
+transition used the template gate, not the broader repository workflow:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
@@ -65,7 +65,7 @@ the broader repository command:
 ```
 
 A passing template gate means public-default render validation, rendered schema
-validator wiring, and Kubernetes security baseline checks are ready for
+validator wiring, and Kubernetes security baseline checks are healthy for
 `template-maintenance`. A failing repository workflow may still be a workstation
 readiness issue, because strict repository validation checks for tools such as
 `kubectl` and `helm`. Use

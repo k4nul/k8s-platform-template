@@ -177,9 +177,9 @@ pwsh -NoProfile -File scripts/validate-template.ps1
 The command completed successfully in this worktree. It emitted expected
 non-strict warnings when `kubeconform`, `kubectl`, and `helm` were not installed.
 
-## Suggested Next Automated Task
+## Current Automated Phase State
 
-Run `phase-transition` next. The phase controller reported that the
-`schema-security-baseline` transition validation command passed, so the next
-safe automated change should update the phase metadata to
-`template-maintenance`.
+The `schema-security-baseline` transition validation command passed, and the
+project phase metadata now records `template-maintenance` with no pending
+transition command. Select a new `next_phase` and transition validation command
+before routing another phase-transition.
