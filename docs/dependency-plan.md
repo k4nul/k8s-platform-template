@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-15
+Last reviewed: 2026-06-16
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -14,7 +14,7 @@ Kubernetes manifest APIs, and generated-artifact hygiene.
 | PowerShell validation and rendering | `scripts/*.ps1`, `tests/*.Tests.ps1` | Requires PowerShell or `pwsh`; scripts use repository-local helpers and PowerShell data files |
 | Kubernetes schema validation | `scripts/validate-rendered-bundle.ps1`, `scripts/validate-platform-assets.ps1` | Prefers `kubeconform`; falls back to `kubectl apply --dry-run=client --validate=true`; non-strict mode warns when both are absent |
 | Workstation validation | `scripts/validate-workstation.ps1`, `scripts/invoke-repository-validation.ps1` | Strict repository validation requires `kubectl` and `helm`; `git`, `docker`, `python`, and `kubeconform` are optional readiness tools |
-| Helm chart scaffolds | `config/helm-releases.psd1`, `k8s/*/values.yaml` | ExternalDNS, Harbor, NGINX Gateway Fabric, Longhorn, Kubernetes Dashboard, and disabled VPA scaffold entries |
+| Helm chart scaffolds | `config/helm-releases.psd1`, `k8s/*/values.yaml` | ExternalDNS, Harbor, NGINX Gateway Fabric, Longhorn, Kubernetes Dashboard, and disabled VPA scaffold entries; chart references are not version-pinned in the repository |
 | Public service images | `config/service-builds.psd1`, `config/service-runtime-bindings.psd1`, `services/*/docker-compose.yaml`, `k8s/400_*/*.yaml` | `adminer:5.3.0-standalone`, `mccutchen/go-httpbin:v2.15.0`, `nginx:1.28-alpine`, `traefik/whoami:v1.10.4` |
 | Platform images | `k8s/**/*.yaml` | Public tags for MySQL, PostgreSQL, Redis, Memcached, Metrics Server, NGINX, and related platform examples |
 | Generated outputs and local secrets | `.gitignore`, delivery and rendering scripts | `out/`, `.kube/`, `secrets/`, `cluster-bootstrap/`, local env files, and private agent files are intentionally untracked |
@@ -95,12 +95,39 @@ If `helm`, `kubectl`, or a schema validator is missing, first run:
 pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 ```
 
-### Stage 4: Strict Schema And Security Gate Hardening
+### Stage 4: Offline Schema Validator Enablement
 
 Scope:
 
-- Prefer `kubeconform` for repository-only schema checks.
-- Keep `kubectl` as the fallback client dry-run path.
+- Install or expose `kubeconform` on the validation host before changing
+  manifests, because it is the preferred repository-only schema validator and
+  does not require live cluster access.
+- Keep `kubectl` as the fallback path for workstations that already use
+  Kubernetes client tooling.
+- Record validator versions in the run evidence; do not commit downloaded
+  binaries, caches, or generated schema output.
+
+Validation:
+
+```bash
+pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
+pwsh -NoProfile -File scripts/validate-template.ps1 -SchemaValidator kubeconform
+```
+
+If `kubeconform` is unavailable but `kubectl` is installed:
+
+```bash
+pwsh -NoProfile -File scripts/validate-template.ps1 -SchemaValidator kubectl
+```
+
+### Stage 5: Strict Helm And Security Gate Hardening
+
+Scope:
+
+- Install or expose `helm` before treating Helm values validation as a template
+  defect.
+- Review whether enabled chart references should become version-pinned after a
+  Helm source review proves the expected chart versions and values schemas.
 - Investigate whether high-severity security baseline findings from optional
   admin examples should become explicit documented exceptions or stricter
   profile-specific gates.
@@ -145,6 +172,12 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 - Public image tags should be reviewed as upgrade candidates; current
   vulnerability status requires external verification and is not inferred from
   repository files.
+- Enabled Helm chart references are tagless/versionless in repository metadata;
+  this is an upgrade-planning risk indicator until chart versions and values
+  schema compatibility are reviewed with `helm` available.
+- The current validation host reported repository-only validation availability:
+  `kubectl`, `kubeconform`, and `helm` were missing for the selected
+  `web-platform` bundle.
 - Optional admin manifests and chart scaffolds can surface high-severity review
   findings that may need profile-specific policy decisions.
 - Any future lockfile, rendered bundle, kubeconfig, or generated secret file
@@ -157,25 +190,34 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 2. Helm chart source and values compatibility review for every enabled release.
 3. Strict schema-validator installation lane, with documented `kubeconform` and
    `kubectl` verification outputs.
-4. Security baseline exception and hardening policy for optional admin and
+4. Helm chart version-pin review and values compatibility lane after `helm` is
+   available on the validation host.
+5. Security baseline exception and hardening policy for optional admin and
    dashboard resources.
-5. Kubernetes API compatibility review for all raw YAML manifests.
+6. Kubernetes API compatibility review for all raw YAML manifests.
 
 ## Changes Made And Validation
 
-This dependency-plan package added a tracked dependency planning document and
-linked it from the repository documentation map. It did not change runtime
-dependencies, public image defaults, Helm chart references, lockfiles, rendered
-bundles, or generated artifacts.
+The 2026-06-16 dependency-plan pass refreshed this dependency plan with current
+validator readiness evidence and a staged offline schema-validator package. It
+did not change runtime dependencies, public image defaults, Helm chart
+references, lockfiles, rendered bundles, or generated artifacts.
 
-Validation command:
+Validation commands:
 
 ```bash
 pwsh -NoProfile -File scripts/validate-template.ps1
+pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
+pwsh -NoProfile -File scripts/validate-workstation.ps1 -Strict
 ```
 
-The command completed successfully in this worktree. It emitted expected
-non-strict warnings when `kubeconform`, `kubectl`, and `helm` were not installed.
+`validate-template.ps1` completed successfully in this worktree. It emitted
+expected non-strict warnings because `kubeconform`, `kubectl`, and `helm` were
+not installed. `show-validation-readiness.ps1` reported
+`repository-only-validation-available` for the selected `web-platform` bundle
+and listed `kubectl`, `kubeconform`, and `helm` as missing required tools.
+`validate-workstation.ps1 -Strict` failed with missing required tools:
+`helm`, `kubectl`.
 
 ## Current Automated Phase State
 
