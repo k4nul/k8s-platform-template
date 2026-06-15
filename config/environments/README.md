@@ -46,7 +46,9 @@ without editing the preset file immediately.
 
 ## Validation Matrix
 
-Template validation includes every `config/environments/*.psd1` file as an environment matrix entry. Values resolve in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then `config/platform-values.env.example`.
+Template validation includes every `config/environments/*.psd1` file as an environment matrix entry, but the template gate passes an explicit public values file so every entry uses `config/platform-values.env.example`.
+
+When you run `validate-render-matrix.ps1` directly, environment values resolve in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then `config/platform-values.env.example`.
 
 The bundled presets point `ValidationValuesFile` at `config/platform-values.env.example`, which keeps public validation independent from local `platform-values.<env>.env` files that may contain site-specific hostnames, storage paths, or secret placeholders.
 
@@ -58,10 +60,13 @@ After editing a generated environment values file, pass it explicitly:
   -ValuesFile config\platform-values.dev.env
 ```
 
-Run the preset matrix directly with:
+Run the full render matrix directly with:
 
 ```powershell
 .\scripts\validate-render-matrix.ps1
 ```
+
+That command validates environment preset entries first, then every profile entry
+under `config/profiles/`.
 
 For the full validation flow and the difference between template validation, repository validation, and delivery validation, see [../../docs/testing.md](../../docs/testing.md).

@@ -104,8 +104,9 @@ phase transition.
 `validate-template.ps1` calls `validate-render-matrix.ps1` after its smoke render. The matrix is intentionally public and generic:
 
 - Environment preset entries come from `config/environments/*.psd1`.
+- When called by `validate-template.ps1`, the matrix receives an explicit public `-ValuesFile`, so every environment and profile entry uses `config/platform-values.env.example`.
 - Each bundled environment preset points `ValidationValuesFile` at `config/platform-values.env.example`.
-- Environment entries resolve values in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then the default public values file.
+- Direct `validate-render-matrix.ps1` runs resolve environment values in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then the default public values file.
 - Environment entries run before profile entries so preset drift is reported before profile-only coverage.
 - Profile entries cover every file under `config/profiles/*.psd1`.
 - Profile entries read `ValidationApplications` and `ValidationDataServices` from each profile file, keeping the public render-validation selection beside the profile owner metadata.
@@ -113,14 +114,15 @@ phase transition.
 - Profiles may opt into Jenkins rendering for validation with `ValidationIncludeJenkins`, but bundled public profiles leave it disabled by default.
 - An explicit `-ValuesFile` passed to `validate-render-matrix.ps1` applies to every environment and profile entry, which is useful when checking a generated values file before delivery.
 - The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
+- `invoke-repository-validation.ps1 -ValuesFile <path>` validates the selected repository workflow with that file, but its nested `validate-template.ps1` step still runs the public-default smoke render and public-default matrix.
 
-The bundled preset coverage is:
+The bundled preset coverage runs in environment-file name order:
 
 | Preset | Profile | Applications | Data services |
 | --- | --- | --- | --- |
 | `dev` | `web-platform` | `nginx-web`, `httpbin`, `whoami` | `redis` |
-| `staging` | `shared-services` | `nginx-web`, `httpbin`, `adminer` | `postgresql`, `redis` |
 | `prod` | `shared-services` | `nginx-web`, `whoami` | `postgresql`, `redis` |
+| `staging` | `shared-services` | `nginx-web`, `httpbin`, `adminer` | `postgresql`, `redis` |
 
 The profile matrix adds representative application and data-service combinations for every profile under `config/profiles/`. `scripts/render-matrix-catalog.ps1` fails if a profile file is added without explicit `ValidationApplications` and `ValidationDataServices` metadata.
 
@@ -133,6 +135,12 @@ The profile matrix adds representative application and data-service combinations
 | `web-platform` | `nginx-web`, `httpbin`, `whoami` | `redis` |
 | `shared-services` | `nginx-web`, `adminer` | `postgresql`, `redis` |
 | `full` | `nginx-web`, `httpbin`, `whoami`, `adminer` | `mysql`, `postgresql`, `redis` |
+
+For `full`, the validation data-service selection is the public matrix input.
+The profile still renders all standard Kubernetes component directories through
+its include-all profile behavior. Keep this distinction clear when adding matrix
+coverage: validation selections are representative public inputs, not a complete
+inventory of every rendered source directory.
 
 Optional follow-up manifests are intentionally excluded from generated bundles
 during matrix validation. The source files remain available for manual review,

@@ -37,6 +37,17 @@ Profiles do not have to be the final word. You can still add or remove applicati
 
 Each bundled profile is covered by `scripts/validate-render-matrix.ps1` with public default values. Every `config/profiles/*.psd1` file must declare `ValidationApplications` and `ValidationDataServices`, even when the list is empty, so profile ownership and validation coverage stay together. Profiles may also declare `ValidationIncludeJenkins` when Jenkins assets should be rendered as part of validation; the public profiles leave it disabled by default.
 
+When you add a profile, add its public validation selections in the same change
+and run:
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+```
+
+The profile matrix uses those validation selections as representative public
+inputs. They do not have to list every directory that an include-all profile can
+render.
+
 Optional follow-up manifests, such as the Kubernetes Dashboard sample viewer
 and the VPA example object, are listed in platform plans but are not copied into
 generated bundles by default.

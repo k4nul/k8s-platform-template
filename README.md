@@ -87,7 +87,7 @@ If this is your first visit, follow this order:
 
 See [docs/testing.md](docs/testing.md) for the profile and environment render matrix, schema validator behavior, and security baseline checks behind this command.
 If validation fails because local tools are missing, use [docs/troubleshooting.md](docs/troubleshooting.md) to separate template issues from workstation readiness issues.
-Repository and matrix validation intentionally use `config/platform-values.env.example` through the bundled presets unless you pass `-ValuesFile` to those commands. After editing a generated values file, validate that file explicitly:
+Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Preset-based repository validation uses the preset `ValidationValuesFile` when no explicit values file is passed. After editing a generated values file, validate that file explicitly:
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 `

@@ -62,10 +62,10 @@ command.
 
 ## Public Defaults And Values Files
 
-Maintenance validation intentionally uses
-`config/platform-values.env.example`. The bundled environment presets set
-`ValidationValuesFile` to that public values file so validation does not depend
-on local hostnames, storage paths, or secret placeholders.
+The maintenance gate explicitly uses `config/platform-values.env.example` for
+its smoke render and full render matrix. The bundled environment presets also
+set `ValidationValuesFile` to that public values file so preset-based repository
+validation stays public by default when no explicit values file is passed.
 
 After creating a site-specific values file, validate it explicitly:
 
@@ -77,6 +77,46 @@ After creating a site-specific values file, validate it explicitly:
 
 Do not treat local values-file failures as public template regressions until the
 public maintenance gate also fails.
+
+## Profile And Environment Matrix Maintenance
+
+Every profile or environment preset change should preserve the public render
+matrix contract:
+
+- Environment preset entries are discovered from every
+  `config/environments/*.psd1` file and run before profile entries.
+- Environment entries normally use `ValidationValuesFile` for public validation.
+  Keep bundled presets pointed at `config/platform-values.env.example` unless a
+  new public defaults file is intentionally introduced.
+- Direct `validate-render-matrix.ps1 -ValuesFile <path>` runs override every
+  environment and profile entry with that values file, which is the right check
+  for a generated site-specific values file.
+- Profile entries are discovered from every `config/profiles/*.psd1` file.
+  Each profile must declare `ValidationApplications` and
+  `ValidationDataServices`, even when the intended validation list is empty.
+- `ValidationIncludeJenkins` should stay disabled for public profiles unless the
+  profile intentionally needs Jenkins assets in its render-validation coverage.
+- Optional manual follow-up manifests should remain outside generated bundles
+  unless the profile or platform catalog explicitly promotes them into the
+  public render path.
+
+When adding or changing a profile, update the profile `.psd1` owner metadata and
+public validation selections in the same change. Then run:
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+.\scripts\validate-template.ps1
+```
+
+When adding or changing an environment preset, keep `ValidationValuesFile`
+separate from site-specific `ValuesFile` defaults so repository validation does
+not depend on private hostnames, storage paths, or secret placeholders. Then run
+the matrix directly before the full maintenance gate:
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+.\scripts\validate-template.ps1
+```
 
 ## Maintenance Guardrails
 
