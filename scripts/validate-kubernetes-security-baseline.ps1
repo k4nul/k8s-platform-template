@@ -1,13 +1,27 @@
 param(
     [string]$Path,
     [switch]$FailOnHighFinding,
-    [switch]$FailOnMediumFinding
+    [switch]$FailOnMediumFinding,
+    [switch]$IncludeOptionalManifests
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "kubernetes-manifest-utils.ps1")
+. (Join-Path $PSScriptRoot "platform-catalog.ps1")
+
+function Get-NormalizedRelativePathKey {
+    param(
+        [string]$Path
+    )
+
+    if (-not $Path) {
+        return ""
+    }
+
+    return $Path.Replace('\', '/').TrimStart('/').ToLowerInvariant()
+}
 
 function Get-FirstMatchLineNumber {
     param(
@@ -278,6 +292,16 @@ foreach ($scanRoot in $scanRoots.ToArray()) {
     }
 }
 
+$optionalManifestPathMap = @{}
+if (-not $IncludeOptionalManifests) {
+    foreach ($optionalPath in (Get-PlatformOptionalManifestCatalog).Keys) {
+        $pathKey = Get-NormalizedRelativePathKey -Path $optionalPath
+        if ($pathKey) {
+            $optionalManifestPathMap[$pathKey] = $true
+        }
+    }
+}
+
 $yamlFiles = @(
     $candidateYamlFiles.ToArray() |
         Where-Object {
@@ -293,10 +317,20 @@ if ($yamlFiles.Count -eq 0) {
 
 $findings = New-Object System.Collections.Generic.List[object]
 $hasNetworkPolicy = $false
+$skippedOptionalManifests = 0
 
 foreach ($file in $yamlFiles) {
-    $content = Get-Content -Path $file.FullName -Raw
     $relativePath = Get-RelativePathFromRoot -Root $root -Path $file.FullName
+    if ($hasK8sRoot -and -not $IncludeOptionalManifests) {
+        $relativeK8sPath = Get-RelativePathFromRoot -Root $k8sRootCandidate -Path $file.FullName
+        $relativeK8sPathKey = Get-NormalizedRelativePathKey -Path $relativeK8sPath
+        if ($optionalManifestPathMap.ContainsKey($relativeK8sPathKey)) {
+            $skippedOptionalManifests++
+            continue
+        }
+    }
+
+    $content = Get-Content -Path $file.FullName -Raw
 
     if ($content -match '(?m)^kind:\s*NetworkPolicy\s*$') {
         $hasNetworkPolicy = $true
@@ -465,6 +499,7 @@ $mediumFindings = @($findings | Where-Object { $_.Severity -eq "medium" })
 $lowFindings = @($findings | Where-Object { $_.Severity -eq "low" })
 
 Write-Host ("Kubernetes security baseline scanned files: {0}" -f $yamlFiles.Count)
+Write-Host ("Kubernetes security baseline skipped optional manifests: {0}" -f $skippedOptionalManifests)
 Write-Host ("Kubernetes security baseline findings: high={0}, medium={1}, low={2}" -f $highFindings.Count, $mediumFindings.Count, $lowFindings.Count)
 
 if ($findings.Count -gt 0) {

@@ -180,6 +180,10 @@ For direct baseline debugging, `validate-kubernetes-security-baseline.ps1` also
 supports `-FailOnHighFinding` and `-FailOnMediumFinding`. Use the medium-finding
 gate only for a deliberately hardened rendered bundle, because the public
 template may still report review items that need environment-specific decisions.
+Repository scans skip cataloged optional manual follow-up manifests, such as
+dashboard admin examples, because those files are intentionally excluded from
+generated bundles. Add `-IncludeOptionalManifests` when the review scope is the
+manual examples themselves.
 
 ## Bootstrap Secret Readiness
 

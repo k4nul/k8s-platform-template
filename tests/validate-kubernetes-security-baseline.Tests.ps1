@@ -113,8 +113,14 @@ function New-TestKubernetesBundle {
     New-Item -ItemType Directory -Path $k8sRoot -Force | Out-Null
 
     foreach ($manifestName in $Manifests.Keys) {
+        $manifestPath = Join-Path $k8sRoot $manifestName
+        $manifestDirectory = Split-Path -Path $manifestPath -Parent
+        if ($manifestDirectory) {
+            New-Item -ItemType Directory -Path $manifestDirectory -Force | Out-Null
+        }
+
         Set-Content `
-            -Path (Join-Path $k8sRoot $manifestName) `
+            -Path $manifestPath `
             -Value $Manifests[$manifestName] `
             -NoNewline
     }
@@ -335,6 +341,65 @@ Invoke-Test -Name "Security baseline fail-on-high blocks cluster-admin bindings"
         }
 
         Assert-True -Condition $failed -Message "FailOnHighFinding should fail when a cluster-admin binding is present."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline skips cataloged optional manual manifests by default" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "311_platform_kubernetes-dashboard/sample-admin-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRoleBinding`nmetadata:`n  name: optional-admin-binding`nsubjects:`n  - kind: ServiceAccount`n    name: optional-admin`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: cluster-admin`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot -FailOnHighFinding 6>&1 3>&1 2>&1 | Out-String)
+
+        Assert-Contains `
+            -Content $output `
+            -Expected "skipped optional manifests: 1" `
+            -Message "Cataloged optional manifests should be skipped by default."
+        Assert-NotContains `
+            -Content $output `
+            -Unexpected "cluster-admin-binding" `
+            -Message "Skipped optional manifests should not produce high-severity findings."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline can include cataloged optional manual manifests" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "311_platform_kubernetes-dashboard/sample-admin-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRoleBinding`nmetadata:`n  name: optional-admin-binding`nsubjects:`n  - kind: ServiceAccount`n    name: optional-admin`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: cluster-admin`n"
+            }
+
+        $failed = $false
+        try {
+            & $securityBaselineScript -Path $testRoot -IncludeOptionalManifests -FailOnHighFinding 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "high-severity" `
+                -Message "Optional manifests should still be reviewable through the explicit include switch."
+            $failed = $true
+        }
+
+        Assert-True -Condition $failed -Message "IncludeOptionalManifests should scan cataloged optional manifests."
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {
