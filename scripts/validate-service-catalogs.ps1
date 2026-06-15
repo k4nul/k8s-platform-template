@@ -109,7 +109,7 @@ foreach ($dataServiceName in @($dataServiceCatalog.Keys | Sort-Object)) {
 }
 
 if ($errors.Count -gt 0) {
-    Write-Error ("Service catalog validation failed:`n- {0}" -f ($errors -join "`n- "))
+    throw ("Service catalog validation failed:`n- {0}" -f ($errors -join "`n- "))
 }
 
 Write-Host "Service catalog validation completed."

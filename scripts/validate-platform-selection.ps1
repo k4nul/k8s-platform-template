@@ -107,7 +107,7 @@ if ($Strict -and $warnings.Count -gt 0) {
 }
 
 if ($failureSections.Count -gt 0) {
-    Write-Error ("Platform selection validation failed:`n{0}" -f ($failureSections -join "`n"))
+    throw ("Platform selection validation failed:`n{0}" -f ($failureSections -join "`n"))
 }
 
 if ($warnings.Count -gt 0) {

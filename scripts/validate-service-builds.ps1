@@ -66,7 +66,7 @@ foreach ($serviceName in $catalogMap.Keys) {
 }
 
 if ($errors.Count -gt 0) {
-    Write-Error ("Service build validation failed:`n- {0}" -f ($errors -join "`n- "))
+    throw ("Service build validation failed:`n- {0}" -f ($errors -join "`n- "))
 }
 
 Write-Host "Service build validation completed."

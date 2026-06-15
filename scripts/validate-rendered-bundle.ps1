@@ -68,7 +68,7 @@ function Get-RenderedManifestValidator {
 $root = (Resolve-Path -Path $RenderedPath).Path
 $k8sRoot = Join-Path $root "k8s"
 if (-not (Test-Path -Path $k8sRoot -PathType Container)) {
-    Write-Error ("Rendered bundle does not contain a k8s directory: {0}" -f $k8sRoot)
+    throw ("Rendered bundle does not contain a k8s directory: {0}" -f $k8sRoot)
 }
 
 $validationTargets = New-Object System.Collections.Generic.List[object]

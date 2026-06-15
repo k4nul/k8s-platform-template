@@ -135,7 +135,7 @@ foreach ($serviceName in $catalogMap.Keys) {
 }
 
 if ($errors.Count -gt 0) {
-    Write-Error ("Service config artifact validation failed:`n- {0}" -f ($errors -join "`n- "))
+    throw ("Service config artifact validation failed:`n- {0}" -f ($errors -join "`n- "))
 }
 
 Write-Host "Service config artifact validation completed."

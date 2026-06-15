@@ -47,7 +47,7 @@ if ($unresolvedMatches.Count -gt 0) {
     }) -join [Environment]::NewLine
 
     if ($FailOnUnresolvedToken) {
-        Write-Error ("Rendered service output still contains unresolved template tokens:`n{0}" -f $message)
+        throw ("Rendered service output still contains unresolved template tokens:`n{0}" -f $message)
     }
     else {
         Write-Warning ("Rendered service output still contains unresolved template tokens:`n{0}" -f $message)

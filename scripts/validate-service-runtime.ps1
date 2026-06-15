@@ -91,7 +91,7 @@ foreach ($serviceName in $catalogMap.Keys) {
 }
 
 if ($errors.Count -gt 0) {
-    Write-Error ("Service runtime validation failed:`n- {0}" -f ($errors -join "`n- "))
+    throw ("Service runtime validation failed:`n- {0}" -f ($errors -join "`n- "))
 }
 
 Write-Host "Service runtime validation completed."

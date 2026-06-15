@@ -53,7 +53,7 @@ if ($RequireCatalogComplete) {
 }
 
 if ($errors.Count -gt 0) {
-    Write-Error ("Platform values validation failed:`n- {0}" -f ($errors -join "`n- "))
+    throw ("Platform values validation failed:`n- {0}" -f ($errors -join "`n- "))
 }
 
 Write-Host "Platform values validation completed."
