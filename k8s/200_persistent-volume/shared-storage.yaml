@@ -7,7 +7,7 @@ spec:
     storage: 100Gi
   accessModes:
     - ReadWriteMany
-  persistentVolumeReclaimPolicy: Retain  
+  persistentVolumeReclaimPolicy: Retain
   nfs:
     server: __SHARED_STORAGE_NFS_SERVER__
     path: __SHARED_STORAGE_NFS_PATH__
