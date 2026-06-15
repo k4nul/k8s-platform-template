@@ -114,6 +114,25 @@ function Invoke-WithEmptyToolPath {
     }
 }
 
+function New-TestEnvironmentPreset {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Lines
+    )
+
+    $environmentRoot = Join-Path $Root "config\environments"
+    New-Item -ItemType Directory -Path $environmentRoot -Force | Out-Null
+    Set-Content `
+        -Path (Join-Path $environmentRoot ("{0}.psd1" -f $Name)) `
+        -Value $Lines
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
@@ -268,6 +287,122 @@ Invoke-Test -Name "Environment render matrix prefers validation values and suppo
     $overrideEntries = @(Get-EnvironmentRenderMatrix -Root $repoRoot -DefaultValuesFile $defaultValuesFile -OverrideValuesFile "custom.env")
     foreach ($entry in $overrideEntries) {
         Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
+    }
+}
+
+Invoke-Test -Name "Environment render matrix resolves public values file precedence" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-env-test-" + [Guid]::NewGuid().ToString("N"))
+    $defaultValuesFile = "config\platform-values.env.example"
+
+    try {
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "default-only" `
+            -Lines @(
+                "@{",
+                "    Description = 'Uses default public values'",
+                "    Profile = 'minimal-application'",
+                "}"
+            )
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "validation-values" `
+            -Lines @(
+                "@{",
+                "    Description = 'Uses explicit validation values'",
+                "    ValuesFile = 'config\private.env'",
+                "    ValidationValuesFile = 'config\public-validation.env'",
+                "}"
+            )
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "values-only" `
+            -Lines @(
+                "@{",
+                "    Description = 'Falls back to normal values'",
+                "    ValuesFile = 'config\regular.env'",
+                "}"
+            )
+
+        $entries = @(Get-EnvironmentRenderMatrix -Root $testRoot -DefaultValuesFile $defaultValuesFile)
+        $entriesByName = @{}
+        foreach ($entry in $entries) {
+            $entriesByName[$entry.Name] = $entry
+        }
+
+        Assert-SequenceEqual `
+            -Expected @("default-only", "validation-values", "values-only") `
+            -Actual @($entries | Select-Object -ExpandProperty Name) `
+            -Message "Environment presets should be processed in stable name order."
+        Assert-Equal `
+            -Expected $defaultValuesFile `
+            -Actual $entriesByName["default-only"].ValuesFile `
+            -Message "Environment presets without values metadata should use the public default values file."
+        Assert-Equal `
+            -Expected "config\public-validation.env" `
+            -Actual $entriesByName["validation-values"].ValuesFile `
+            -Message "ValidationValuesFile should take precedence over a private ValuesFile."
+        Assert-Equal `
+            -Expected "config\regular.env" `
+            -Actual $entriesByName["values-only"].ValuesFile `
+            -Message "ValuesFile should be used only when ValidationValuesFile is absent."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Environment render matrix applies metadata defaults and explicit flags" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-env-test-" + [Guid]::NewGuid().ToString("N"))
+    $defaultValuesFile = "config\platform-values.env.example"
+
+    try {
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "defaults" `
+            -Lines @(
+                "@{",
+                "    Description = 'Uses matrix defaults'",
+                "}"
+            )
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "explicit" `
+            -Lines @(
+                "@{",
+                "    Description = 'Uses explicit metadata'",
+                "    Version = '2.3.4-test'",
+                "    Profile = 'web-platform'",
+                "    Applications = @('nginx-web,httpbin', ' whoami ')",
+                "    DataServices = @('postgresql, redis')",
+                "    IncludeJenkins = `$true",
+                "}"
+            )
+
+        $entries = @(Get-EnvironmentRenderMatrix -Root $testRoot -DefaultValuesFile $defaultValuesFile)
+        $entriesByName = @{}
+        foreach ($entry in $entries) {
+            $entriesByName[$entry.Name] = $entry
+        }
+
+        Assert-Equal -Expected "0.0.0-defaults-matrix" -Actual $entriesByName["defaults"].Version -Message "Missing versions should get an environment-specific matrix version."
+        Assert-Equal -Expected "full" -Actual $entriesByName["defaults"].Profile -Message "Missing profiles should default to full."
+        Assert-SequenceEqual -Expected @() -Actual @($entriesByName["defaults"].Applications) -Message "Missing applications should become an empty list."
+        Assert-SequenceEqual -Expected @() -Actual @($entriesByName["defaults"].DataServices) -Message "Missing data services should become an empty list."
+        Assert-False -Condition $entriesByName["defaults"].IncludeJenkins -Message "IncludeJenkins should be false by default."
+
+        Assert-Equal -Expected "2.3.4-test" -Actual $entriesByName["explicit"].Version -Message "Explicit versions should be retained."
+        Assert-Equal -Expected "web-platform" -Actual $entriesByName["explicit"].Profile -Message "Explicit profiles should be retained."
+        Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($entriesByName["explicit"].Applications) -Message "Applications should be normalized from environment metadata."
+        Assert-SequenceEqual -Expected @("postgresql", "redis") -Actual @($entriesByName["explicit"].DataServices) -Message "Data services should be normalized from environment metadata."
+        Assert-True -Condition $entriesByName["explicit"].IncludeJenkins -Message "Explicit IncludeJenkins should be retained."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
     }
 }
 
