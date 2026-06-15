@@ -95,6 +95,7 @@ function Invoke-Test {
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
+$renderMatrixValidation = Join-Path $repoRoot "scripts\validate-render-matrix.ps1"
 
 Invoke-Test -Name "ConvertTo-RenderMatrixList trims comma-delimited values and skips blanks" -Body {
     $actual = @(
@@ -132,6 +133,45 @@ Invoke-Test -Name "New-RenderMatrixEntry normalizes applications, data services,
     Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($entry.Applications) -Message "Applications should be normalized."
     Assert-SequenceEqual -Expected @("postgresql", "redis") -Actual @($entry.DataServices) -Message "Data services should be normalized."
     Assert-Equal -Expected $true -Actual $entry.IncludeJenkins -Message "IncludeJenkins should be true."
+}
+
+Invoke-Test -Name "Resolve-RenderMatrixRepoPath keeps absolute paths and roots relative paths" -Body {
+    $relativePath = "config\platform-values.env.example"
+    $absolutePath = Join-Path $repoRoot $relativePath
+
+    Assert-Equal `
+        -Expected ([System.IO.Path]::GetFullPath($absolutePath)) `
+        -Actual (Resolve-RenderMatrixRepoPath -Root $repoRoot -Path $absolutePath) `
+        -Message "Absolute matrix values paths should not be rooted twice."
+
+    Assert-Equal `
+        -Expected ([System.IO.Path]::GetFullPath($absolutePath)) `
+        -Actual (Resolve-RenderMatrixRepoPath -Root $repoRoot -Path $relativePath) `
+        -Message "Relative matrix values paths should resolve from the repository root."
+}
+
+Invoke-Test -Name "Profile render matrix requires explicit public validation selections" -Body {
+    $failed = $false
+
+    try {
+        Get-RequiredProfileMatrixList `
+            -Definition @{ Description = "Missing validation metadata" } `
+            -ProfileName "custom-profile" `
+            -Key "ValidationApplications" | Out-Null
+    }
+    catch {
+        $failed = $true
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "Profile 'custom-profile' is missing 'ValidationApplications'" `
+            -Message "Missing profile application metadata should be rejected."
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "config/profiles/custom-profile.psd1" `
+            -Message "The failure should point maintainers to the profile metadata file."
+    }
+
+    Assert-True -Condition $failed -Message "Profiles without explicit validation applications should fail matrix construction."
 }
 
 Invoke-Test -Name "Profile render matrix covers every configured public profile" -Body {
@@ -238,6 +278,31 @@ Invoke-Test -Name "Combined render validation matrix is ordered and overrideable
     foreach ($entry in $overrideEntries) {
         Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
     }
+}
+
+Invoke-Test -Name "Render matrix validation fails before rendering when a matrix values file is missing" -Body {
+    $missingValuesFile = "config\missing-public-values.env"
+    $resolvedMissingValuesFile = Resolve-RenderMatrixRepoPath -Root $repoRoot -Path $missingValuesFile
+    $failed = $false
+
+    try {
+        & $renderMatrixValidation `
+            -RepoRoot $repoRoot `
+            -ValuesFile $missingValuesFile 3>&1 2>&1 | Out-String | Out-Null
+    }
+    catch {
+        $failed = $true
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "Render matrix values file was not found" `
+            -Message "Missing values files should fail before any render attempt."
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected $resolvedMissingValuesFile `
+            -Message "The failure should include the resolved missing values file path."
+    }
+
+    Assert-True -Condition $failed -Message "Render matrix validation should fail when the selected values file is absent."
 }
 
 Invoke-Test -Name "Strict platform asset validation promotes selection warnings before rendering" -Body {
