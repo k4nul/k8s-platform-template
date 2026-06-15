@@ -200,6 +200,7 @@ function Get-PlatformK8sComponentCatalog {
 
 function Get-PlatformOptionalManifestCatalog {
     return [ordered]@{
+        "311_platform_kubernetes-dashboard\sample-admin-user.yaml" = "Optional cluster-admin dashboard sample. Keep out of generated bundles unless an operator explicitly reviews and accepts the cluster-wide scope."
         "311_platform_kubernetes-dashboard\sample-viewer-user.yaml" = "Optional namespace-scoped dashboard viewer manifest. Review scope before use."
         "312_platform_vertical-pod-autoscaler\example-nginx-web-vpa.yaml" = "Optional example VPA object. Apply only after the VPA components are installed."
     }

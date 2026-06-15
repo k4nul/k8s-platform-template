@@ -50,6 +50,7 @@ $expectedPaths = @(
     "services\whoami\README.md",
     "services\adminer\README.md",
     "k8s\README.md",
+    "k8s\100_namespace\platform-network-policy.yaml",
     "k8s\400_platform_nginx-web\README.md",
     "k8s\400_platform_httpbin\README.md",
     "k8s\400_platform_whoami\README.md",
@@ -91,6 +92,7 @@ $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-secur
 
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
+Assert-FileContains -Path (Join-Path $root "scripts\platform-catalog.ps1") -Pattern ([regex]::Escape("sample-admin-user.yaml")) -Label "Optional dashboard admin sample exclusion"
 
 $coreRenderMatrixProfiles = @(
     "data-services",
