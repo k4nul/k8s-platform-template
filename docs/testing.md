@@ -64,6 +64,41 @@ the project moved into `template-maintenance`.
 For the maintainer runbook that turns this gate into progress-dashboard
 evidence, see [maintenance.md](maintenance.md).
 
+## Failed Kubernetes Validation Triage
+
+When a dashboard, scheduled automation run, or reviewer reports `kubernetes
+validation failed`, start with the maintenance gate before changing manifests:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+This command is the phase-managed template maintenance gate. It validates the
+public defaults and temporary render output without requiring a live cluster.
+Interpret the result before running broader checks:
+
+| Gate result | Interpretation |
+| --- | --- |
+| Passes | Public template rendering, render matrix coverage, rendered schema-validator wiring, and security-baseline checks are healthy for `template-maintenance`. Continue with workstation readiness checks if another workflow still fails. |
+| Fails in repository path or catalog checks | A required file, script, test, catalog entry, or public values input is missing or inconsistent. Fix the reported repository item. |
+| Fails during smoke render or render matrix | A bundled profile, environment preset, public values default, or manifest source broke public render validation. Fix the failing public-default input and rerun the matrix. |
+| Warns about missing `kubeconform`, `kubectl`, or `helm` | The non-strict template gate reached optional validator paths. Install the missing tool when you need that proof; do not change manifests only because this local machine lacks the tool. |
+
+After the maintenance gate passes, use these commands to identify local
+workstation blockers or environment-specific values-file issues:
+
+```powershell
+.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
+.\scripts\validate-workstation.ps1 -Strict
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+```
+
+`show-validation-readiness.ps1 -Format json` includes grouped fields such as
+`SchemaValidatorRequirement`, `HelmRequirement`, and
+`MissingRequiredToolRequirements`. Prefer those fields in automation because
+the default schema-validation requirement is satisfied by either `kubeconform`
+or `kubectl`.
+
 ## Schema And Security Baseline Phase Handoff
 
 The `schema-security-baseline` phase moved to `template-maintenance` after the

@@ -60,6 +60,20 @@ should be fixed in source files or catalogs; workstation readiness failures
 should be fixed by installing the missing local tool and rerunning the same
 command.
 
+Use this decision path when triaging the dashboard status:
+
+| Result | Meaning | Next action |
+| --- | --- | --- |
+| Template maintenance gate passes | The public-default template render, render matrix, schema-validator wiring, and security baseline are healthy for the current phase. | Save the command output as maintenance evidence, then inspect workstation readiness before editing manifests. |
+| Template maintenance gate fails before rendering | A required repository path, catalog, script, test, or public values file is missing or inconsistent. | Fix the reported repository file and rerun the same gate. |
+| Template maintenance gate fails during smoke render or matrix render | A public profile, environment preset, values file, or source manifest no longer renders with public defaults. | Use the failing profile or preset from the error output, then run `.\scripts\validate-render-matrix.ps1` after the fix. |
+| Template maintenance gate warns that no schema validator is installed | Non-strict public validation reached the optional schema-validation layer, but this machine cannot prove schemas offline. | Install `kubeconform` or `kubectl` when schema proof is required; do not treat the warning alone as a template regression. |
+| Broader repository workflow fails after a passing template gate | The selected environment workflow or workstation is not ready, usually because strict validation requires tools such as `kubectl` or `helm`. | Run the readiness report and strict workstation check before changing template files. |
+
+For automation reports, record the first failing command, whether the template
+gate passed, and whether the readiness report lists a missing grouped
+requirement such as `kubeconform or kubectl`.
+
 ## Public Defaults And Values Files
 
 The maintenance gate explicitly uses `config/platform-values.env.example` for

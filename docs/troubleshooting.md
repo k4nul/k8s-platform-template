@@ -81,6 +81,20 @@ requirement, `kubeconform or kubectl`, from specific missing tools such as
 For the full evidence order used during recurring maintenance, including the
 readiness report and strict workstation check, see [maintenance.md](maintenance.md).
 
+Use the first failing command to choose the fix:
+
+| First failing check | Likely cause | Fix scope |
+| --- | --- | --- |
+| `validate-template.ps1` path or content assertion | Required repository documentation, script, catalog, test, or public values input is missing or stale. | Repository files. |
+| `validate-template.ps1` smoke render or matrix entry | A bundled environment preset, profile validation selection, public values default, or manifest source is inconsistent. | Public-default template inputs or manifests. |
+| `show-validation-readiness.ps1` reports missing `kubeconform or kubectl` | The selected bundle needs rendered schema validation and no accepted schema validator is installed. | Workstation tooling, unless a specific validator was intentionally required by the workflow. |
+| `show-validation-readiness.ps1` reports missing `helm` | The selected profile includes Helm-managed components but Helm is unavailable. | Workstation tooling or profile selection. |
+| `validate-workstation.ps1 -Strict` fails after the template gate passes | Strict repository validation is blocked by local tool readiness. | Workstation tooling. |
+| `invoke-repository-validation.ps1 -EnvironmentPreset dev -ValuesFile <file>` fails only for a custom file | The generated or edited values file has site-specific issues. | The custom values file, not the public template defaults. |
+
+Do not edit source manifests until the template maintenance gate itself fails or
+the failing rendered file path points back to a public-default manifest source.
+
 ## Edited Values Are Not Reflected
 
 Environment presets use `ValidationValuesFile` for repository validation when it is defined. The bundled presets point to `config/platform-values.env.example` so public validation does not depend on site-specific values.
