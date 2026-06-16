@@ -122,6 +122,8 @@ foreach ($term in $securityBaselineTerms) {
     Assert-FileContains -Path $securityBaselineValidation -Pattern $term -Label "Kubernetes security baseline validation gate"
 }
 
+& $securityBaselineValidation -Path $root -FailOnHighFinding
+
 & $renderManifestsTests
 & $placeholderTests
 & $renderedBundleTests

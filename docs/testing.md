@@ -52,7 +52,7 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 
 | Layer | Command | What it proves |
 | --- | --- | --- |
-| Template gate | `.\scripts\validate-template.ps1` | Required repository files exist, catalog tests pass, one public smoke bundle renders, rendered assets validate non-strictly, and the public-default render matrix completes |
+| Template gate | `.\scripts\validate-template.ps1` | Required repository files exist, catalog tests pass, the source Kubernetes baseline has no high-severity default findings, one public smoke bundle renders, rendered assets validate non-strictly, and the public-default render matrix completes |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile <profile> -Format markdown` | The selected bundle's tool requirements, CRD-backed resource notes, Helm needs, and recommended validation command for this workstation |
 | Repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Template validation, strict workstation validation, and rendered bundle validation for one environment preset |
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
@@ -218,7 +218,7 @@ installed, the rendered schema-validation requirement is satisfied.
 
 ## Kubernetes Security Baseline
 
-`validate-platform-assets.ps1` also runs `scripts/validate-kubernetes-security-baseline.ps1` against the rendered bundle. The baseline is a review gate, not a replacement for cluster admission policy.
+`validate-template.ps1` runs `scripts/validate-kubernetes-security-baseline.ps1 -FailOnHighFinding` against the source tree so high-severity Kubernetes defaults cannot enter the public template unnoticed. `validate-platform-assets.ps1` also runs the same baseline against the rendered bundle. The baseline is a review gate, not a replacement for cluster admission policy.
 
 It reports:
 
@@ -226,7 +226,7 @@ It reports:
 - medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 
-By default the script reports findings without failing the run. Use `-FailOnHighSecurityBaselineFinding` with `validate-render-matrix.ps1` or `validate-platform-assets.ps1` when high-severity findings should block the validation command.
+By default the baseline script reports findings without failing the run. The template gate opts into `-FailOnHighFinding` for the source tree. Use `-FailOnHighSecurityBaselineFinding` with `validate-render-matrix.ps1` or `validate-platform-assets.ps1` when high-severity rendered-bundle findings should block the validation command.
 
 For direct baseline debugging, `validate-kubernetes-security-baseline.ps1` also
 supports `-FailOnHighFinding` and `-FailOnMediumFinding`. Use the medium-finding

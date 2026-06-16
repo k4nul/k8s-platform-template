@@ -369,6 +369,8 @@ Invoke-Test -Name "Security baseline skips cataloged optional manual manifests b
             -Content $output `
             -Unexpected "cluster-admin-binding" `
             -Message "Skipped optional manifests should not produce high-severity findings."
+
+        & $securityBaselineScript -Path $testRoot -FailOnHighFinding 3>&1 2>&1 | Out-String | Out-Null
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {
