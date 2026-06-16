@@ -192,32 +192,38 @@ $toolDefinitions = @(
     @{
         Name = "kubectl"
         Purpose = "Rendered manifest and bootstrap YAML dry-run validation, plus raw bundle apply, status, and destroy helpers."
-        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -eq $kubeconformCommand)
+        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -ne $kubectlCommand)
+        RequirementRole = if ($requiresRenderedManifestValidation) { "schema-validator alternative" } else { "not required" }
     }
     @{
         Name = "kubeconform"
         Purpose = "Rendered manifest schema validation without a live cluster dependency."
-        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -eq $kubectlCommand)
+        RequiredForSelectedValidation = ($requiresRenderedManifestValidation -and $null -ne $kubeconformCommand)
+        RequirementRole = if ($requiresRenderedManifestValidation) { "schema-validator alternative" } else { "not required" }
     }
     @{
         Name = "helm"
         Purpose = "Helm template validation plus Helm bundle install, status, and destroy helpers."
         RequiredForSelectedValidation = $requiresHelm
+        RequirementRole = if ($requiresHelm) { "required" } else { "not required" }
     }
     @{
         Name = "git"
         Purpose = "Repository inspection and change tracking."
         RequiredForSelectedValidation = $false
+        RequirementRole = "optional"
     }
     @{
         Name = "docker"
         Purpose = "Optional local compose refresh, image builds, and runtime debugging."
         RequiredForSelectedValidation = $false
+        RequirementRole = "optional"
     }
     @{
         Name = "python"
         Purpose = "Optional script execution and environment debugging outside PowerShell flows."
         RequiredForSelectedValidation = $false
+        RequirementRole = "optional"
     }
 )
 
@@ -237,12 +243,12 @@ foreach ($definition in $toolDefinitions) {
         Installed = ($null -ne $command)
         Version = if ($null -ne $command) { Get-ToolVersion -Name $definition.Name } else { "" }
         RequiredForSelectedValidation = [bool]$definition.RequiredForSelectedValidation
+        RequirementRole = $definition.RequirementRole
         Purpose = $definition.Purpose
     }
 }
 
 $requiredTools = @($toolReport | Where-Object { $_.RequiredForSelectedValidation })
-$missingRequiredTools = @($requiredTools | Where-Object { -not $_.Installed })
 $installedRequiredTools = @($requiredTools | Where-Object { $_.Installed })
 $installedSchemaValidators = @(
     @("kubeconform", "kubectl") |
@@ -268,14 +274,26 @@ $helmRequirement = [PSCustomObject]@{
     MissingRequirement = if ($requiresHelm -and $null -eq $helmCommand) { "helm" } else { "" }
 }
 $missingRequiredToolRequirements = @(
-    $schemaValidatorRequirement.MissingRequirement,
-    $helmRequirement.MissingRequirement
-) | Where-Object { $_ }
+    @(
+        $schemaValidatorRequirement.MissingRequirement,
+        $helmRequirement.MissingRequirement
+    ) | Where-Object { $_ }
+)
+$requiredValidationRequirements = @(
+    @(
+        $schemaValidatorRequirement,
+        $helmRequirement
+    ) | Where-Object { $_.Required }
+)
+$satisfiedRequiredToolRequirements = @($requiredValidationRequirements | Where-Object { $_.Satisfied })
+$missingRequiredTools = @($toolReport | Where-Object {
+    $_.RequirementRole -eq "required" -and -not $_.Installed
+})
 
-$readinessStatus = if ($missingRequiredTools.Count -eq 0) {
+$readinessStatus = if ($missingRequiredToolRequirements.Count -eq 0) {
     "full-bundle-validation-available"
 }
-elseif ($installedRequiredTools.Count -gt 0) {
+elseif ($satisfiedRequiredToolRequirements.Count -gt 0 -or $installedRequiredTools.Count -gt 0) {
     "partial-bundle-validation-available"
 }
 else {
@@ -409,7 +427,7 @@ switch ($Format) {
             ("- Helm components: " + [string]$helmReleases.Count),
             ("- Readiness status: " + $readinessStatus),
             ("- Missing required tool requirements for this bundle: " + $missingRequiredToolRequirementsText),
-            ("- Missing required tools for this bundle: " + $missingRequiredToolsText),
+            ("- Missing direct required tools for this bundle: " + $missingRequiredToolsText),
             "",
             "## Requirement Summary",
             "",
@@ -418,14 +436,13 @@ switch ($Format) {
             "",
             "## Tool Status",
             "",
-            "| Tool | Installed | Required For This Bundle | Purpose |",
+            "| Tool | Installed | Requirement Role | Purpose |",
             "| --- | --- | --- | --- |"
         )
 
         foreach ($tool in $toolReport) {
             $installedText = if ($tool.Installed) { "yes" } else { "no" }
-            $requiredText = if ($tool.RequiredForSelectedValidation) { "yes" } else { "no" }
-            $lines += ("| {0} | {1} | {2} | {3} |" -f $tool.Tool, $installedText, $requiredText, $tool.Purpose)
+            $lines += ("| {0} | {1} | {2} | {3} |" -f $tool.Tool, $installedText, $tool.RequirementRole, $tool.Purpose)
             if ($tool.Version) {
                 $lines += ('| {0} version | `{1}` |  |  |' -f $tool.Tool, $tool.Version)
             }
@@ -499,7 +516,7 @@ switch ($Format) {
             ("Helm components: " + [string]$helmReleases.Count),
             ("Readiness status: " + $readinessStatus),
             ("Missing required tool requirements: " + $missingRequiredToolRequirementsText),
-            ("Missing required tools: " + $missingRequiredToolsText),
+            ("Missing direct required tools: " + $missingRequiredToolsText),
             "",
             "Requirement summary",
             ("- Rendered schema validator: " + $(if ($schemaValidatorRequirement.Satisfied) { "satisfied" } elseif ($schemaValidatorRequirement.Required) { "blocked until kubeconform or kubectl is installed" } else { "not required for this bundle" })),
@@ -509,7 +526,7 @@ switch ($Format) {
         )
 
         foreach ($tool in $toolReport) {
-            $lines += ("- {0}: installed={1}, required-for-this-bundle={2}" -f $tool.Tool, [string]$tool.Installed, [string]$tool.RequiredForSelectedValidation)
+            $lines += ("- {0}: installed={1}, requirement-role={2}" -f $tool.Tool, [string]$tool.Installed, $tool.RequirementRole)
             if ($tool.Version) {
                 $lines += ("  Version: " + $tool.Version)
             }

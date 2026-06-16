@@ -128,6 +128,10 @@ Invoke-Test -Name "Readiness JSON groups alternative schema validators as one mi
         -Expected @("kubeconform or kubectl", "helm") `
         -Actual @($document.MissingRequiredToolRequirements) `
         -Message "Missing requirement text should group the schema-validator alternatives."
+    Assert-SequenceEqual `
+        -Expected @("helm") `
+        -Actual @($document.MissingRequiredTools) `
+        -Message "Missing direct required tools should not list both schema-validator alternatives as mandatory."
     Assert-Equal `
         -Expected $true `
         -Actual $document.SchemaValidatorRequirement.Required `
@@ -156,6 +160,21 @@ Invoke-Test -Name "Readiness JSON groups alternative schema validators as one mi
         -Expected @() `
         -Actual @($document.HelmRequirement.InstalledTools) `
         -Message "No Helm tools should be reported from the empty tool path."
+    $kubectlReport = @($document.ToolReport | Where-Object { $_.Tool -eq "kubectl" })[0]
+    $kubeconformReport = @($document.ToolReport | Where-Object { $_.Tool -eq "kubeconform" })[0]
+    $helmReport = @($document.ToolReport | Where-Object { $_.Tool -eq "helm" })[0]
+    Assert-Equal `
+        -Expected "schema-validator alternative" `
+        -Actual $kubectlReport.RequirementRole `
+        -Message "kubectl should be labeled as one accepted schema-validator alternative."
+    Assert-Equal `
+        -Expected "schema-validator alternative" `
+        -Actual $kubeconformReport.RequirementRole `
+        -Message "kubeconform should be labeled as one accepted schema-validator alternative."
+    Assert-Equal `
+        -Expected "required" `
+        -Actual $helmReport.RequirementRole `
+        -Message "helm should remain a direct required tool for Helm-backed bundles."
 }
 
 Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body {
@@ -173,6 +192,22 @@ Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body 
         -Content $markdown `
         -Expected "Missing required tool requirements for this bundle: kubeconform or kubectl, helm" `
         -Message "Markdown summary should show missing tool requirements at requirement granularity."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "Missing direct required tools for this bundle: helm" `
+        -Message "Markdown summary should avoid listing both schema-validator alternatives as individually required."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "| Tool | Installed | Requirement Role | Purpose |" `
+        -Message "Markdown tool table should describe each tool role instead of a misleading required flag."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "| kubectl | no | schema-validator alternative |" `
+        -Message "Markdown should label kubectl as a schema-validator alternative."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "| kubeconform | no | schema-validator alternative |" `
+        -Message "Markdown should label kubeconform as a schema-validator alternative."
     Assert-Contains `
         -Content $markdown `
         -Expected "Rendered schema validator: blocked until kubeconform or kubectl is installed" `

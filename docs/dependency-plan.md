@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-16
+Last reviewed: 2026-06-17
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -34,7 +34,9 @@ manifests, or generated rendered bundles in this template.
   workstation has the stricter `kubectl` and `helm` prerequisites available.
 - Use `show-validation-readiness.ps1` before treating missing Kubernetes tools as
   template defects. Its grouped requirement summary treats `kubeconform or
-  kubectl` as one schema-validator requirement and reports `helm` separately.
+  kubectl` as one schema-validator requirement, labels each validator as a
+  `schema-validator alternative`, and reports `helm` separately as the direct
+  required tool for bundles with Helm releases.
 - Do not commit rendered `out/` bundles, kubeconfigs, secrets, generated local
   env files, or private agent files.
 
@@ -48,6 +50,9 @@ Scope:
   template validation status.
 - Keep this document current when public image tags, Helm chart entries, or
   workstation tool assumptions change.
+- Keep readiness reports at requirement granularity: `kubeconform or kubectl`
+  is one schema-validator requirement, while `helm` is a direct Helm validation
+  requirement.
 - Cross-check public image references across `config/service-builds.psd1`,
   `config/service-runtime-bindings.psd1`, `services/*/docker-compose.yaml`, and
   matching Kubernetes manifests.
@@ -174,8 +179,10 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 
 ## Security Or Maintenance Risk Indicators
 
-- Missing `kubeconform`, `kubectl`, or `helm` means validation coverage is
-  reduced or blocked depending on strictness.
+- Missing both `kubeconform` and `kubectl`, or missing `helm`, means validation
+  coverage is reduced or blocked depending on strictness. The schema-validator
+  lane accepts either `kubeconform` or `kubectl`; do not report both alternatives
+  as individually mandatory.
 - Missing `pwsh` blocks every repository validation lane before Kubernetes
   manifests are read. Treat `pwsh: command not found` or exit 127 as an
   automation environment issue and rerun after exposing PowerShell on `PATH`.
@@ -210,18 +217,23 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 
 ## Changes Made And Validation
 
-The 2026-06-16 dependency-plan pass refreshed this dependency plan with current
-validator readiness evidence, an explicit automation-shell `pwsh` readiness
-gate, and a staged offline schema-validator package. It did not change runtime
-dependencies, public image defaults, Helm chart references, lockfiles, rendered
-bundles, or generated artifacts.
+The 2026-06-17 dependency-plan pass tightened validation-readiness reporting so
+the missing tool summary stays at requirement granularity. `kubectl` and
+`kubeconform` are now labeled as `schema-validator alternative` entries instead
+of both being displayed as individually required when neither is installed, while
+`helm` remains the direct required tool for Helm-backed bundles. It did not
+change runtime dependencies, public image defaults, Helm chart references,
+lockfiles, rendered bundles, or generated artifacts.
 
 Validation commands:
 
 ```bash
 command -v pwsh
 pwsh -NoProfile -File scripts/validate-template.ps1
+pwsh -NoProfile -File tests/show-validation-readiness.Tests.ps1
+pwsh -NoProfile -File tests/validate-render-matrix.Tests.ps1
 pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
+pwsh -NoProfile -File scripts/invoke-repository-validation.ps1 -EnvironmentPreset dev
 pwsh -NoProfile -File scripts/validate-workstation.ps1 -Strict
 pwsh -NoProfile -File scripts/show-service-build-plan.ps1 -Format markdown
 pwsh -NoProfile -File scripts/show-service-runtime-plan.ps1 -Format markdown
@@ -229,15 +241,20 @@ pwsh -NoProfile -File scripts/show-service-dependency-plan.ps1 -Format markdown
 ```
 
 `command -v pwsh` resolved to `/home/k4nul/.local/bin/pwsh` in this worktree.
-`validate-template.ps1` completed successfully. It emitted expected non-strict
-warnings because `kubeconform`, `kubectl`, and `helm` were not installed.
+`tests/show-validation-readiness.Tests.ps1`,
+`tests/validate-render-matrix.Tests.ps1`, `validate-template.ps1`, and
+`invoke-repository-validation.ps1 -EnvironmentPreset dev` completed
+successfully. The template and repository validation paths emitted expected
+non-strict warnings because `kubeconform`, `kubectl`, and `helm` were not
+installed.
 `show-validation-readiness.ps1` reported `repository-only-validation-available`
-for the selected `web-platform` bundle and listed `kubectl`, `kubeconform`, and
-`helm` as missing required tools. `validate-workstation.ps1 -Strict` failed with
-missing required tools: `helm`, `kubectl`. The service build, runtime, and
-dependency plan helpers completed successfully with all public services in the
-`public-image` build profile and dependency-plan status counts of `ready=4`,
-`attention=0`, `error=0`, `uncatalogued=0`.
+for the selected `web-platform` bundle, missing required tool requirements of
+`kubeconform or kubectl, helm`, and the direct missing required tool `helm`.
+`validate-workstation.ps1 -Strict` failed with missing required tools: `helm`,
+`kubectl`. The service build, runtime, and dependency plan helpers completed
+successfully with all public services in the `public-image` build profile and
+dependency-plan status counts of `ready=4`, `attention=0`, `error=0`,
+`uncatalogued=0`.
 
 ## Current Automated Phase State
 

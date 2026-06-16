@@ -97,7 +97,10 @@ workstation blockers or environment-specific values-file issues:
 `SchemaValidatorRequirement`, `HelmRequirement`, and
 `MissingRequiredToolRequirements`. Prefer those fields in automation because
 the default schema-validation requirement is satisfied by either `kubeconform`
-or `kubectl`.
+or `kubectl`. The tool-status rows label `kubectl` and `kubeconform` as
+`schema-validator alternative` entries instead of listing both as individually
+required when neither is installed; `helm` remains a direct required tool for
+bundles that include Helm releases.
 
 ## Schema And Security Baseline Phase Handoff
 
