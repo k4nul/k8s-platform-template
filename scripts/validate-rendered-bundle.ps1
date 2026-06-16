@@ -101,6 +101,73 @@ function Invoke-RenderedManifestValidator {
     throw ("Unsupported rendered manifest validator: {0}" -f $Validator)
 }
 
+function Get-RenderedValidationCategoryCount {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Items,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Category
+    )
+
+    return @($Items | Where-Object { $_.Category -eq $Category }).Count
+}
+
+function Write-RenderedManifestValidationResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Validated,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Skipped,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Failed,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ValidatedLabel,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FailureMessage,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SuccessMessage,
+
+        [switch]$AppendFailedFilesToFailure
+    )
+
+    $validatedK8sCount = Get-RenderedValidationCategoryCount -Items $Validated -Category "Kubernetes manifests"
+    $validatedBootstrapNamespaceCount = Get-RenderedValidationCategoryCount -Items $Validated -Category "Bootstrap namespace templates"
+    $validatedBootstrapSecretCount = Get-RenderedValidationCategoryCount -Items $Validated -Category "Bootstrap secret templates"
+
+    Write-Host ("{0} Kubernetes manifests: {1}" -f $ValidatedLabel, $validatedK8sCount)
+    Write-Host ("{0} bootstrap namespace templates: {1}" -f $ValidatedLabel, $validatedBootstrapNamespaceCount)
+    Write-Host ("{0} bootstrap secret templates: {1}" -f $ValidatedLabel, $validatedBootstrapSecretCount)
+
+    if ($Skipped.Count -gt 0) {
+        Write-Host ("Skipped rendered YAML files: {0}" -f $Skipped.Count)
+        $Skipped | Format-Table -AutoSize
+    }
+
+    if ($Failed.Count -gt 0) {
+        Write-Host ("Failed rendered YAML files: {0}" -f $Failed.Count)
+        $Failed | Format-Table -AutoSize
+
+        if ($AppendFailedFilesToFailure) {
+            $failedFiles = @($Failed | Select-Object -ExpandProperty File -Unique)
+            throw ("{0}: {1}" -f $FailureMessage, ($failedFiles -join ", "))
+        }
+
+        throw $FailureMessage
+    }
+
+    Write-Host $SuccessMessage
+}
+
 function Test-MeaningfulYamlDocument {
     param(
         [string]$Content
@@ -225,27 +292,14 @@ function Invoke-RenderedManifestStructuralPreflight {
         }
     }
 
-    $validatedK8sCount = @($validated | Where-Object { $_.Category -eq "Kubernetes manifests" }).Count
-    $validatedBootstrapNamespaceCount = @($validated | Where-Object { $_.Category -eq "Bootstrap namespace templates" }).Count
-    $validatedBootstrapSecretCount = @($validated | Where-Object { $_.Category -eq "Bootstrap secret templates" }).Count
-
-    Write-Host ("Structurally validated Kubernetes manifests: {0}" -f $validatedK8sCount)
-    Write-Host ("Structurally validated bootstrap namespace templates: {0}" -f $validatedBootstrapNamespaceCount)
-    Write-Host ("Structurally validated bootstrap secret templates: {0}" -f $validatedBootstrapSecretCount)
-
-    if ($skipped.Count -gt 0) {
-        Write-Host ("Skipped rendered YAML files: {0}" -f $skipped.Count)
-        $skipped | Format-Table -AutoSize
-    }
-
-    if ($failed.Count -gt 0) {
-        Write-Host ("Failed rendered YAML files: {0}" -f $failed.Count)
-        $failed | Format-Table -AutoSize
-        $failedFiles = @($failed | Select-Object -ExpandProperty File -Unique)
-        throw ("Rendered manifest structural preflight failed: {0}" -f ($failedFiles -join ", "))
-    }
-
-    Write-Host "Rendered manifest structural preflight completed successfully."
+    Write-RenderedManifestValidationResult `
+        -Validated $validated `
+        -Skipped $skipped `
+        -Failed $failed `
+        -ValidatedLabel "Structurally validated" `
+        -FailureMessage "Rendered manifest structural preflight failed" `
+        -SuccessMessage "Rendered manifest structural preflight completed successfully." `
+        -AppendFailedFilesToFailure
 }
 
 function Add-RenderedYamlValidationTargets {
@@ -358,23 +412,10 @@ foreach ($target in $validationTargets) {
     }
 }
 
-$validatedK8sCount = @($validated | Where-Object { $_.Category -eq "Kubernetes manifests" }).Count
-$validatedBootstrapNamespaceCount = @($validated | Where-Object { $_.Category -eq "Bootstrap namespace templates" }).Count
-$validatedBootstrapSecretCount = @($validated | Where-Object { $_.Category -eq "Bootstrap secret templates" }).Count
-
-Write-Host ("Validated Kubernetes manifests: {0}" -f $validatedK8sCount)
-Write-Host ("Validated bootstrap namespace templates: {0}" -f $validatedBootstrapNamespaceCount)
-Write-Host ("Validated bootstrap secret templates: {0}" -f $validatedBootstrapSecretCount)
-
-if ($skipped.Count -gt 0) {
-    Write-Host ("Skipped rendered YAML files: {0}" -f $skipped.Count)
-    $skipped | Format-Table -AutoSize
-}
-
-if ($failed.Count -gt 0) {
-    Write-Host ("Failed rendered YAML files: {0}" -f $failed.Count)
-    $failed | Format-Table -AutoSize
-    throw "Rendered manifest validation failed."
-}
-
-Write-Host "Rendered manifest validation completed successfully."
+Write-RenderedManifestValidationResult `
+    -Validated $validated `
+    -Skipped $skipped `
+    -Failed $failed `
+    -ValidatedLabel "Validated" `
+    -FailureMessage "Rendered manifest validation failed." `
+    -SuccessMessage "Rendered manifest validation completed successfully."
