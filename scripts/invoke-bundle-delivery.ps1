@@ -33,97 +33,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "environment-preset.ps1")
-
-function Resolve-RepoPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Root,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    if ([System.IO.Path]::IsPathRooted($Path)) {
-        return [System.IO.Path]::GetFullPath($Path)
-    }
-
-    return [System.IO.Path]::GetFullPath((Join-Path $Root $Path))
-}
-
-function Normalize-List {
-    param(
-        [string[]]$Values = @()
-    )
-
-    $normalized = New-Object System.Collections.Generic.List[string]
-
-    foreach ($value in @($Values)) {
-        if ($null -eq $value) {
-            continue
-        }
-
-        foreach ($entry in ($value -split ",")) {
-            $trimmed = $entry.Trim()
-            if ($trimmed) {
-                $normalized.Add($trimmed) | Out-Null
-            }
-        }
-    }
-
-    return @($normalized)
-}
-
-function Get-ListText {
-    param(
-        [string[]]$Values = @(),
-        [string]$Empty = "none"
-    )
-
-    if (@($Values).Count -gt 0) {
-        return (@($Values) -join ", ")
-    }
-
-    return $Empty
-}
-
-function Invoke-WorkflowStep {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Title,
-
-        [Parameter(Mandatory = $true)]
-        [ScriptBlock]$Action
-    )
-
-    Write-Host ("== {0} ==" -f $Title)
-    & $Action
-    Write-Host ("Completed: {0}" -f $Title)
-    Write-Host ""
-}
-
-function Test-UnsafeDeletionTarget {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [string]$RepoPath
-    )
-
-    $resolvedPath = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
-    $resolvedRepoPath = [System.IO.Path]::GetFullPath($RepoPath).TrimEnd('\')
-    $pathRoot = [System.IO.Path]::GetPathRoot($resolvedPath).TrimEnd('\')
-
-    if (-not $resolvedPath -or $resolvedPath.Length -le ($pathRoot.Length + 1)) {
-        return $true
-    }
-
-    if ($resolvedPath -eq $resolvedRepoPath) {
-        return $true
-    }
-
-    return $false
-}
+. (Join-Path $PSScriptRoot "repository-workflow-helpers.ps1")
 
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
@@ -264,12 +174,12 @@ if (-not $SkipRepositoryValidation) {
         $repositoryValidationParameters.SkipWorkstationValidation = $true
     }
 
-    Invoke-WorkflowStep -Title "Repository validation preflight" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Repository validation preflight" -Action {
         & $repositoryValidationScript @repositoryValidationParameters
     }
 }
 
-Invoke-WorkflowStep -Title "Render deployment bundle" -Action {
+Invoke-RepositoryWorkflowStep -Title "Render deployment bundle" -Action {
     $renderParameters = @{
         RepoRoot = $root
         OutputPath = $resolvedOutputPath
@@ -287,7 +197,7 @@ Invoke-WorkflowStep -Title "Render deployment bundle" -Action {
 }
 
 if (-not $SkipBundleValidation) {
-    Invoke-WorkflowStep -Title "Bundle-local validation" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Bundle-local validation" -Action {
         if (-not (Test-Path -Path $bundleValidateScript -PathType Leaf)) {
             throw ("Bundle validation helper not found: {0}" -f $bundleValidateScript)
         }
@@ -311,7 +221,7 @@ if (-not $SkipBundleValidation) {
 }
 
 if (-not $SkipArchive) {
-    Invoke-WorkflowStep -Title "Archive rendered bundle" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Archive rendered bundle" -Action {
         $archiveDirectory = Split-Path -Path $resolvedArchivePath -Parent
         if ($archiveDirectory) {
             New-Item -ItemType Directory -Path $archiveDirectory -Force | Out-Null
@@ -325,7 +235,7 @@ if (-not $SkipArchive) {
 }
 
 if ($DeployBundle) {
-    Invoke-WorkflowStep -Title "Deploy rendered bundle" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Deploy rendered bundle" -Action {
         if (-not (Test-Path -Path $bundleDeployScript -PathType Leaf)) {
             throw ("Bundle deployment helper not found: {0}" -f $bundleDeployScript)
         }

@@ -26,73 +26,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "environment-preset.ps1")
-
-function Resolve-RepoPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Root,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    if ([System.IO.Path]::IsPathRooted($Path)) {
-        return [System.IO.Path]::GetFullPath($Path)
-    }
-
-    return [System.IO.Path]::GetFullPath((Join-Path $Root $Path))
-}
-
-function Normalize-List {
-    param(
-        [string[]]$Values = @()
-    )
-
-    $normalized = New-Object System.Collections.Generic.List[string]
-
-    foreach ($value in @($Values)) {
-        if ($null -eq $value) {
-            continue
-        }
-
-        foreach ($entry in ($value -split ",")) {
-            $trimmed = $entry.Trim()
-            if ($trimmed) {
-                $normalized.Add($trimmed) | Out-Null
-            }
-        }
-    }
-
-    return @($normalized)
-}
-
-function Get-ListText {
-    param(
-        [string[]]$Values = @(),
-        [string]$Empty = "none"
-    )
-
-    if (@($Values).Count -gt 0) {
-        return (@($Values) -join ", ")
-    }
-
-    return $Empty
-}
-
-function Invoke-ValidationStep {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Title,
-
-        [Parameter(Mandatory = $true)]
-        [ScriptBlock]$Action
-    )
-
-    Write-Host ("== {0} ==" -f $Title)
-    & $Action
-    Write-Host ("Completed: {0}" -f $Title)
-    Write-Host ""
-}
+. (Join-Path $PSScriptRoot "repository-workflow-helpers.ps1")
 
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
@@ -174,13 +108,13 @@ if ($resolvedRenderedPath) {
 Write-Host ""
 
 if (-not $SkipTemplateValidation) {
-    Invoke-ValidationStep -Title "Repository template validation" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Repository template validation" -Action {
         & $templateValidationScript -RepoRoot $root -SchemaValidator $SchemaValidator
     }
 }
 
 if (-not $SkipWorkstationValidation) {
-    Invoke-ValidationStep -Title "Workstation validation" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Workstation validation" -Action {
         & $workstationValidationScript -Strict
     }
 }
@@ -213,7 +147,7 @@ if (-not $SkipPlatformAssetValidation) {
         $platformValidationParameters.RequireBootstrapSecretsReady = $true
     }
 
-    Invoke-ValidationStep -Title "Rendered bundle validation" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Rendered bundle validation" -Action {
         & $platformAssetValidationScript @platformValidationParameters
     }
 }

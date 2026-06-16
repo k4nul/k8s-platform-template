@@ -21,61 +21,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "environment-preset.ps1")
-
-function Resolve-RepoPath {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Root,
-
-        [Parameter(Mandatory = $true)]
-        [string]$Path
-    )
-
-    if ([System.IO.Path]::IsPathRooted($Path)) {
-        return [System.IO.Path]::GetFullPath($Path)
-    }
-
-    return [System.IO.Path]::GetFullPath((Join-Path $Root $Path))
-}
-
-function Invoke-WorkflowStep {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Title,
-
-        [Parameter(Mandatory = $true)]
-        [ScriptBlock]$Action
-    )
-
-    Write-Host ("== {0} ==" -f $Title)
-    & $Action
-    Write-Host ("Completed: {0}" -f $Title)
-    Write-Host ""
-}
-
-function Test-UnsafeDeletionTarget {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-
-        [Parameter(Mandatory = $true)]
-        [string]$RepoPath
-    )
-
-    $resolvedPath = [System.IO.Path]::GetFullPath($Path).TrimEnd('\')
-    $resolvedRepoPath = [System.IO.Path]::GetFullPath($RepoPath).TrimEnd('\')
-    $pathRoot = [System.IO.Path]::GetPathRoot($resolvedPath).TrimEnd('\')
-
-    if (-not $resolvedPath -or $resolvedPath.Length -le ($pathRoot.Length + 1)) {
-        return $true
-    }
-
-    if ($resolvedPath -eq $resolvedRepoPath) {
-        return $true
-    }
-
-    return $false
-}
+. (Join-Path $PSScriptRoot "repository-workflow-helpers.ps1")
 
 function Resolve-ExtractedBundleRoot {
     param(
@@ -174,7 +120,7 @@ $resolvedBundleRoot = ""
 $bundleValidateScript = ""
 $bundleDeployScript = ""
 
-Invoke-WorkflowStep -Title "Expand bundle archive" -Action {
+Invoke-RepositoryWorkflowStep -Title "Expand bundle archive" -Action {
     Expand-Archive -LiteralPath $resolvedArchivePath -DestinationPath $resolvedExtractPath -Force
     $script:resolvedBundleRoot = Resolve-ExtractedBundleRoot -ExtractRoot $resolvedExtractPath
     $script:bundleValidateScript = Join-Path $script:resolvedBundleRoot "validate-bundle.ps1"
@@ -198,7 +144,7 @@ Write-Host ("- Resolved bundle root: {0}" -f $resolvedBundleRoot)
 Write-Host ""
 
 if (-not $SkipBundleValidation) {
-    Invoke-WorkflowStep -Title "Promoted bundle validation" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Promoted bundle validation" -Action {
         $bundleValidationParameters = @{
             BundleRoot = $resolvedBundleRoot
             PrepareHelmRepos = $PrepareHelmRepos
@@ -218,7 +164,7 @@ if (-not $SkipBundleValidation) {
 }
 
 if ($DeployBundle) {
-    Invoke-WorkflowStep -Title "Promoted bundle deployment" -Action {
+    Invoke-RepositoryWorkflowStep -Title "Promoted bundle deployment" -Action {
         $deployParameters = @{
             BundleRoot = $resolvedBundleRoot
             PrepareHelmRepos = $PrepareHelmRepos

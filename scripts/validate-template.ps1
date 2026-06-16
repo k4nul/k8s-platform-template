@@ -63,11 +63,13 @@ $expectedPaths = @(
     "scripts\show-service-build-plan.ps1",
     "scripts\validate-rendered-bundle.ps1",
     "scripts\render-matrix-catalog.ps1",
+    "scripts\repository-workflow-helpers.ps1",
     "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1",
     "tests\validate-check-placeholders.Tests.ps1",
     "tests\validate-render-manifests.Tests.ps1",
     "tests\validate-rendered-bundle.Tests.ps1",
+    "tests\repository-workflow-helpers.Tests.ps1",
     "tests\validate-kubernetes-security-baseline.Tests.ps1",
     "tests\validate-render-matrix.Tests.ps1",
     "tests\show-validation-readiness.Tests.ps1"
@@ -90,6 +92,7 @@ $renderMatrixValidation = Join-Path $root "scripts\validate-render-matrix.ps1"
 $renderManifestsTests = Join-Path $root "tests\validate-render-manifests.Tests.ps1"
 $placeholderTests = Join-Path $root "tests\validate-check-placeholders.Tests.ps1"
 $renderedBundleTests = Join-Path $root "tests\validate-rendered-bundle.Tests.ps1"
+$repositoryWorkflowHelperTests = Join-Path $root "tests\repository-workflow-helpers.Tests.ps1"
 $securityBaselineTests = Join-Path $root "tests\validate-kubernetes-security-baseline.Tests.ps1"
 $renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
 $validationReadinessTests = Join-Path $root "tests\show-validation-readiness.Tests.ps1"
@@ -127,6 +130,7 @@ foreach ($term in $securityBaselineTerms) {
 & $renderManifestsTests
 & $placeholderTests
 & $renderedBundleTests
+& $repositoryWorkflowHelperTests
 & $securityBaselineTests
 & $renderMatrixTests
 & $validationReadinessTests
