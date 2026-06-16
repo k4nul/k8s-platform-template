@@ -133,6 +133,25 @@ function New-TestEnvironmentPreset {
         -Value $Lines
 }
 
+function New-TestProfileDefinition {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$Lines
+    )
+
+    $profileRoot = Join-Path $Root "config\profiles"
+    New-Item -ItemType Directory -Path $profileRoot -Force | Out-Null
+    Set-Content `
+        -Path (Join-Path $profileRoot ("{0}.psd1" -f $Name)) `
+        -Value $Lines
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
@@ -214,6 +233,116 @@ Invoke-Test -Name "Profile render matrix requires explicit public validation sel
     }
 
     Assert-True -Condition $failed -Message "Profiles without explicit validation applications should fail matrix construction."
+}
+
+Invoke-Test -Name "Profile render matrix requires explicit public data service selections" -Body {
+    $failed = $false
+
+    try {
+        Get-RequiredProfileMatrixList `
+            -Definition @{ ValidationApplications = @("nginx-web") } `
+            -ProfileName "custom-profile" `
+            -Key "ValidationDataServices" | Out-Null
+    }
+    catch {
+        $failed = $true
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "Profile 'custom-profile' is missing 'ValidationDataServices'" `
+            -Message "Missing profile data service metadata should be rejected."
+        Assert-Contains `
+            -Content $_.Exception.Message `
+            -Expected "config/profiles/custom-profile.psd1" `
+            -Message "The failure should point maintainers to the profile metadata file."
+    }
+
+    Assert-True -Condition $failed -Message "Profiles without explicit validation data services should fail matrix construction."
+}
+
+Invoke-Test -Name "Profile render matrix orders known profiles before sorted custom profiles" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-profile-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "zeta-custom" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('whoami')",
+                "    ValidationDataServices = @()",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "minimal-application" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web')",
+                "    ValidationDataServices = @()",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "alpha-custom" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('httpbin')",
+                "    ValidationDataServices = @('redis')",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "web-platform" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web', 'httpbin')",
+                "    ValidationDataServices = @('redis')",
+                "}"
+            )
+
+        $entries = @(Get-ProfileRenderMatrix -Root $testRoot -ValuesFile "config\platform-values.env.example")
+
+        Assert-SequenceEqual `
+            -Expected @("minimal-application", "web-platform", "alpha-custom", "zeta-custom") `
+            -Actual @($entries | Select-Object -ExpandProperty Name) `
+            -Message "Known profile names should keep the preferred validation order before custom profiles sorted by name."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Profile render matrix preserves explicit profile validation selections and flags" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-profile-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "custom-profile" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web,httpbin', ' whoami ')",
+                "    ValidationDataServices = @('postgresql, redis')",
+                "    ValidationIncludeJenkins = `$true",
+                "}"
+            )
+
+        $entry = @(Get-ProfileRenderMatrix -Root $testRoot -ValuesFile "config\platform-values.env.example")[0]
+
+        Assert-Equal -Expected "profile" -Actual $entry.Scope -Message "Custom profile should be a profile matrix entry."
+        Assert-Equal -Expected "custom-profile" -Actual $entry.Name -Message "Custom profile name should be retained."
+        Assert-Equal -Expected "custom-profile" -Actual $entry.Profile -Message "Profile argument should match the profile name."
+        Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($entry.Applications) -Message "Profile validation applications should be normalized."
+        Assert-SequenceEqual -Expected @("postgresql", "redis") -Actual @($entry.DataServices) -Message "Profile validation data services should be normalized."
+        Assert-True -Condition $entry.IncludeJenkins -Message "Profile ValidationIncludeJenkins should be forwarded to render validation."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
 }
 
 Invoke-Test -Name "Profile render matrix covers every configured public profile" -Body {
