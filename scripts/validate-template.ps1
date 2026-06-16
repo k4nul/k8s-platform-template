@@ -65,6 +65,7 @@ $expectedPaths = @(
     "scripts\render-matrix-catalog.ps1",
     "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1",
+    "tests\validate-check-placeholders.Tests.ps1",
     "tests\validate-render-manifests.Tests.ps1",
     "tests\validate-rendered-bundle.Tests.ps1",
     "tests\validate-kubernetes-security-baseline.Tests.ps1",
@@ -86,6 +87,7 @@ $assetValidation = Join-Path $root "scripts\validate-platform-assets.ps1"
 $renderMatrixCatalog = Join-Path $root "scripts\render-matrix-catalog.ps1"
 $renderMatrixValidation = Join-Path $root "scripts\validate-render-matrix.ps1"
 $renderManifestsTests = Join-Path $root "tests\validate-render-manifests.Tests.ps1"
+$placeholderTests = Join-Path $root "tests\validate-check-placeholders.Tests.ps1"
 $renderedBundleTests = Join-Path $root "tests\validate-rendered-bundle.Tests.ps1"
 $securityBaselineTests = Join-Path $root "tests\validate-kubernetes-security-baseline.Tests.ps1"
 $renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
@@ -119,6 +121,7 @@ foreach ($term in $securityBaselineTerms) {
 }
 
 & $renderManifestsTests
+& $placeholderTests
 & $renderedBundleTests
 & $securityBaselineTests
 & $renderMatrixTests

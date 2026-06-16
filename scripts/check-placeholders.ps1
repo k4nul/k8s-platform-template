@@ -9,7 +9,48 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path -Path $Path).Path
 $includeExtensions = @(".yaml", ".yml", ".json", ".ini", ".env", ".conf", ".properties")
 $includeFileNames = @("Jenkinsfile")
-$excludePathFragments = @("\.git\", "\out\", "\__pycache__\")
+$excludedDirectoryNames = @(".git", "__pycache__")
+
+function Get-NormalizedRelativePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ChildPath
+    )
+
+    return ([System.IO.Path]::GetRelativePath($Root, $ChildPath)).Replace('\', '/')
+}
+
+function Test-ExcludedPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ChildPath
+    )
+
+    $relativePath = Get-NormalizedRelativePath -Root $Root -ChildPath $ChildPath
+    $segments = @($relativePath -split "/" | Where-Object { $_ })
+
+    if ($segments.Count -eq 0) {
+        return $false
+    }
+
+    if ($excludedDirectoryNames -contains $segments[0]) {
+        return $true
+    }
+
+    foreach ($segment in $segments) {
+        if ($excludedDirectoryNames -contains $segment) {
+            return $true
+        }
+    }
+
+    return ($segments[0] -eq "out")
+}
 
 $patterns = @(
     @{ Name = "Example Domain"; Regex = "example\.com" },
@@ -27,8 +68,7 @@ $files = Get-ChildItem -Path $root -Recurse -File | Where-Object {
     $isIncludedExtension = $includeExtensions -contains $_.Extension.ToLowerInvariant()
     $isIncludedName = $includeFileNames -contains $_.Name
     $isIncludedExampleEnv = $filePath.EndsWith(".env.example")
-    $excludedMatches = @($excludePathFragments | Where-Object { $filePath.Contains($_.ToLowerInvariant()) })
-    $isExcludedPath = $excludedMatches.Count -gt 0
+    $isExcludedPath = Test-ExcludedPath -Root $root -ChildPath $_.FullName
     ($isIncludedExtension -or $isIncludedName -or $isIncludedExampleEnv) -and -not $isExcludedPath
 }
 
@@ -50,7 +90,7 @@ foreach ($file in $files) {
 
 if ($matches.Count -eq 0) {
     Write-Host "No tracked placeholder values were found."
-    exit 0
+    return
 }
 
 $matches |
@@ -60,5 +100,5 @@ $matches |
 Write-Warning ("Found {0} placeholder matches. Review them before deployment." -f $matches.Count)
 
 if ($FailOnMatch) {
-    exit 1
+    throw ("Placeholder scan found {0} placeholder match(es)." -f $matches.Count)
 }
