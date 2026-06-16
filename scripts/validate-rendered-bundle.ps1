@@ -101,6 +101,46 @@ function Invoke-RenderedManifestValidator {
     throw ("Unsupported rendered manifest validator: {0}" -f $Validator)
 }
 
+function Add-RenderedYamlValidationTargets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Targets,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SearchRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Category,
+
+        [switch]$DetectCrdBackedResources
+    )
+
+    if (-not (Test-Path -Path $SearchRoot -PathType Container)) {
+        return
+    }
+
+    Get-ChildItem -Path $SearchRoot -Recurse -File | Where-Object {
+        $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml") -and $_.Name -ne "values.yaml"
+    } | ForEach-Object {
+        $crdBackedApiGroups = @()
+        if ($DetectCrdBackedResources) {
+            $content = Get-Content -Path $_.FullName -Raw
+            $crdBackedApiGroups = @(Get-CrdBackedApiGroupsFromContent -Content $content)
+        }
+
+        $Targets.Add([PSCustomObject]@{
+            Category = $Category
+            File = $_.FullName
+            RelativePath = Get-RelativePathFromRoot -Root $Root -Path $_.FullName
+            RequiresCrd = (@($crdBackedApiGroups).Count -gt 0)
+        }) | Out-Null
+    }
+}
+
 $root = (Resolve-Path -Path $RenderedPath).Path
 $k8sRoot = Join-Path $root "k8s"
 if (-not (Test-Path -Path $k8sRoot -PathType Container)) {
@@ -109,47 +149,26 @@ if (-not (Test-Path -Path $k8sRoot -PathType Container)) {
 
 $validationTargets = New-Object System.Collections.Generic.List[object]
 
-Get-ChildItem -Path $k8sRoot -Recurse -File | Where-Object {
-    $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml") -and $_.Name -ne "values.yaml"
-} | ForEach-Object {
-    $content = Get-Content -Path $_.FullName -Raw
-    $crdBackedApiGroups = @(Get-CrdBackedApiGroupsFromContent -Content $content)
-
-    $validationTargets.Add([PSCustomObject]@{
-        Category = "Kubernetes manifests"
-        File = $_.FullName
-        RelativePath = Get-RelativePathFromRoot -Root $root -Path $_.FullName
-        RequiresCrd = ($crdBackedApiGroups.Count -gt 0)
-    }) | Out-Null
-}
+Add-RenderedYamlValidationTargets `
+    -Targets $validationTargets `
+    -Root $root `
+    -SearchRoot $k8sRoot `
+    -Category "Kubernetes manifests" `
+    -DetectCrdBackedResources
 
 $bootstrapNamespaceRoot = Join-Path $root "cluster-bootstrap\namespaces"
-if (Test-Path -Path $bootstrapNamespaceRoot -PathType Container) {
-    Get-ChildItem -Path $bootstrapNamespaceRoot -Recurse -File | Where-Object {
-        $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml")
-    } | ForEach-Object {
-        $validationTargets.Add([PSCustomObject]@{
-            Category = "Bootstrap namespace templates"
-            File = $_.FullName
-            RelativePath = Get-RelativePathFromRoot -Root $root -Path $_.FullName
-            RequiresCrd = $false
-        }) | Out-Null
-    }
-}
+Add-RenderedYamlValidationTargets `
+    -Targets $validationTargets `
+    -Root $root `
+    -SearchRoot $bootstrapNamespaceRoot `
+    -Category "Bootstrap namespace templates"
 
 $bootstrapSecretRoot = Join-Path $root "cluster-bootstrap\secrets"
-if (Test-Path -Path $bootstrapSecretRoot -PathType Container) {
-    Get-ChildItem -Path $bootstrapSecretRoot -Recurse -File | Where-Object {
-        $_.Extension.ToLowerInvariant() -in @(".yaml", ".yml")
-    } | ForEach-Object {
-        $validationTargets.Add([PSCustomObject]@{
-            Category = "Bootstrap secret templates"
-            File = $_.FullName
-            RelativePath = Get-RelativePathFromRoot -Root $root -Path $_.FullName
-            RequiresCrd = $false
-        }) | Out-Null
-    }
-}
+Add-RenderedYamlValidationTargets `
+    -Targets $validationTargets `
+    -Root $root `
+    -SearchRoot $bootstrapSecretRoot `
+    -Category "Bootstrap secret templates"
 
 $validated = New-Object System.Collections.Generic.List[object]
 $skipped = New-Object System.Collections.Generic.List[object]
