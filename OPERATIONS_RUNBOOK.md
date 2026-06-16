@@ -36,8 +36,15 @@ Then replace placeholders with real values before treating the environment as de
 Validate repository structure, workstation tooling, and rendered bundle dry-runs through the shared validation entry point:
 
 ```powershell
-.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
 ```
+
+Pass the edited values file explicitly after generating it. The built-in presets
+use `ValidationValuesFile` for public-default repository checks when no values
+file is passed, so `-EnvironmentPreset dev` alone validates the template's public
+defaults rather than your edited environment file.
 
 Use this step before delivery packaging or after changing shared templates, catalogs, or preset files.
 For the detailed validation layers, including the public-default render matrix and Kubernetes security baseline behavior, see [docs/testing.md](docs/testing.md).

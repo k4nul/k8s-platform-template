@@ -5,6 +5,25 @@ the `template-maintenance` phase. Use it when a dashboard, scheduled automation,
 or reviewer reports that Kubernetes validation is failing and you need to
 separate a template regression from local workstation readiness.
 
+## Active Maintenance Scope
+
+The selected next scope is `public-default-security-review`. It keeps maintenance
+focused on the intentionally permissive public-default posture before any new
+platform expansion:
+
+- review `platform-public-ingress-baseline` and keep its demo-friendly ingress
+  behavior explicit
+- keep Kubernetes Dashboard sample admin and viewer manifests as manual
+  follow-up resources outside generated bundles
+- preserve public image defaults, public validation values, and rendered output
+  cleanup while the review is active
+- keep proving the scope with `scripts/validate-template.ps1`, which checks the
+  phase manifest, render matrix, schema-validator wiring, and Kubernetes
+  security baseline
+
+Do not add live cluster access, private registry assumptions, or committed
+rendered bundles as part of this scope.
+
 ## Maintenance Validation Order
 
 Run the maintenance gate from the repository root:
@@ -39,9 +58,18 @@ preparing a delivery or checking one environment preset end to end:
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 ```
 
-That command adds strict workstation validation. A failure there can mean local
-tools such as `kubectl` or `helm` are missing even when the template maintenance
-gate is healthy.
+That command adds strict workstation validation and uses the preset's public
+`ValidationValuesFile` when no values file is passed. After editing a generated
+environment file, pass it explicitly:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
+A failure there can mean local tools such as `kubectl` or `helm` are missing
+even when the template maintenance gate is healthy.
 
 ## Progress Dashboard Evidence
 

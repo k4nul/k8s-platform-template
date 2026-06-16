@@ -62,7 +62,12 @@ function Invoke-RepositoryWorkflowStep {
     )
 
     Write-Host ("== {0} ==" -f $Title)
+    $global:LASTEXITCODE = 0
     & $Action
+    if ($null -ne $global:LASTEXITCODE -and $global:LASTEXITCODE -ne 0) {
+        throw ("Repository workflow step '{0}' failed with exit code {1}." -f $Title, $global:LASTEXITCODE)
+    }
+
     Write-Host ("Completed: {0}" -f $Title)
     Write-Host ""
 }

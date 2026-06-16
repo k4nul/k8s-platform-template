@@ -31,6 +31,57 @@ function Assert-FileContains {
     }
 }
 
+function Get-RequiredObjectProperty {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$InputObject,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Label
+    )
+
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        throw ("{0} is missing required property '{1}'." -f $Label, $Name)
+    }
+
+    return $property.Value
+}
+
+function Assert-TemplateMaintenanceScopeSelected {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $phaseGates = Get-Content -Path $Path -Raw | ConvertFrom-Json
+    $currentPhase = [string](Get-RequiredObjectProperty -InputObject $phaseGates -Name "current_phase" -Label "Phase gates manifest")
+
+    if ($currentPhase -ne "template-maintenance") {
+        return
+    }
+
+    $nextPhase = [string](Get-RequiredObjectProperty -InputObject $phaseGates -Name "next_phase" -Label "Phase gates manifest")
+    $transition = Get-RequiredObjectProperty -InputObject $phaseGates -Name "transition" -Label "Phase gates manifest"
+    $transitionValidationCommand = [string](
+        Get-RequiredObjectProperty `
+            -InputObject $transition `
+            -Name "transition_validation_command" `
+            -Label "Phase gates transition"
+    )
+
+    if (-not $nextPhase.Trim()) {
+        throw "Template maintenance phase must declare next_phase before automated transition routing can resume."
+    }
+
+    if (-not $transitionValidationCommand.Trim()) {
+        throw "Template maintenance phase must declare transition.transition_validation_command before automated transition routing can resume."
+    }
+}
+
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
 }
@@ -43,6 +94,7 @@ $expectedPaths = @(
     "QUICKSTART.md",
     "DEPLOYMENT_ENV.md",
     "ENV_CHECKLIST.md",
+    "docs\instructions\phase-gates.json",
     "config\README.md",
     "config\platform-values.env.example",
     "config\profiles\README.md",
@@ -98,10 +150,12 @@ $renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
 $validationReadinessTests = Join-Path $root "tests\show-validation-readiness.Tests.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
+$phaseGatesManifest = Join-Path $root "docs\instructions\phase-gates.json"
 
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
 Assert-FileContains -Path (Join-Path $root "scripts\platform-catalog.ps1") -Pattern ([regex]::Escape("sample-admin-user.yaml")) -Label "Optional dashboard admin sample exclusion"
+Assert-TemplateMaintenanceScopeSelected -Path $phaseGatesManifest
 
 $coreRenderMatrixProfiles = @(
     "data-services",

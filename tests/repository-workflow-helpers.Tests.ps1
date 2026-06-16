@@ -80,8 +80,31 @@ function Invoke-Test {
     }
 }
 
+function Invoke-WithEmptyToolPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Body
+    )
+
+    $previousPath = $env:PATH
+    $toolPath = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-workflow-tools-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
+        $env:PATH = $toolPath
+        & $Body
+    }
+    finally {
+        $env:PATH = $previousPath
+        if (Test-Path -LiteralPath $toolPath) {
+            Remove-Item -LiteralPath $toolPath -Recurse -Force
+        }
+    }
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\repository-workflow-helpers.ps1")
+$repositoryValidation = Join-Path $repoRoot "scripts\invoke-repository-validation.ps1"
 
 Invoke-Test -Name "Resolve-RepoPath roots relative paths and preserves absolute paths" -Body {
     $relativePath = "config\platform-values.env.example"
@@ -135,6 +158,45 @@ Invoke-Test -Name "Invoke-RepositoryWorkflowStep runs the provided action" -Body
     }
 
     Assert-True -Condition $script:helperStepRan -Message "Workflow step helper should invoke the supplied action."
+}
+
+Invoke-Test -Name "Invoke-RepositoryWorkflowStep fails on nonzero child exit codes" -Body {
+    $failed = $false
+
+    try {
+        Invoke-RepositoryWorkflowStep -Title "failing helper test step" -Action {
+            $global:LASTEXITCODE = 23
+        }
+    }
+    catch {
+        $failed = $true
+        Assert-Equal `
+            -Expected "Repository workflow step 'failing helper test step' failed with exit code 23." `
+            -Actual $_.Exception.Message `
+            -Message "Workflow helper should turn nonzero child exit codes into terminating errors."
+    }
+
+    Assert-True -Condition $failed -Message "Workflow helper should fail the step when a child command leaves a nonzero exit code."
+}
+
+Invoke-Test -Name "Repository validation fails when strict workstation validation fails" -Body {
+    $failed = Invoke-WithEmptyToolPath -Body {
+        try {
+            & $repositoryValidation `
+                -RepoRoot $repoRoot `
+                -SkipTemplateValidation `
+                -SkipPlatformAssetValidation 3>&1 2>&1 | Out-String | Out-Null
+            return $false
+        }
+        catch {
+            Assert-True `
+                -Condition $_.Exception.Message.Contains("Missing required workstation tools") `
+                -Message "Repository validation should propagate strict workstation validation failures."
+            return $true
+        }
+    }
+
+    Assert-True -Condition $failed -Message "Repository validation should fail when required workstation tools are absent."
 }
 
 Invoke-Test -Name "Test-UnsafeDeletionTarget blocks root and repository paths" -Body {

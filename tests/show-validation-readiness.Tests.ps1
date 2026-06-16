@@ -39,6 +39,18 @@ function Assert-Contains {
     }
 }
 
+function Assert-NotContains {
+    param(
+        [string]$Content,
+        [string]$Unexpected,
+        [string]$Message
+    )
+
+    if ($Content.Contains($Unexpected)) {
+        throw ("{0} Expected not to find '{1}'." -f $Message, $Unexpected)
+    }
+}
+
 function Assert-SequenceEqual {
     param(
         [object[]]$Expected,
@@ -175,6 +187,14 @@ Invoke-Test -Name "Readiness JSON groups alternative schema validators as one mi
         -Expected "required" `
         -Actual $helmReport.RequirementRole `
         -Message "helm should remain a direct required tool for Helm-backed bundles."
+    Assert-NotContains `
+        -Content ([string]$document.RecommendedValidationCommand) `
+        -Unexpected "-ValidateCrdBackedResources" `
+        -Message "Default readiness validation should not opt into CRD-backed resources."
+    Assert-Contains `
+        -Content ([string]$document.RecommendedCrdBackedValidationCommand) `
+        -Expected "-ValidateCrdBackedResources" `
+        -Message "Readiness JSON should expose CRD-backed validation as an explicit follow-up command."
 }
 
 Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body {
@@ -216,6 +236,14 @@ Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body 
         -Content $markdown `
         -Expected "Helm validation: blocked until helm is installed" `
         -Message "Markdown should keep Helm as its own blocked requirement."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "# Optional after CRD schemas are available:" `
+        -Message "Markdown recommended commands should label CRD-backed validation as optional."
+    Assert-Contains `
+        -Content $markdown `
+        -Expected "-ValidateCrdBackedResources" `
+        -Message "Markdown should still show the opt-in CRD-backed validation command."
 }
 
 if ($script:TestsFailed -gt 0) {

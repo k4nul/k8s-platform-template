@@ -340,7 +340,19 @@ $recommendedValidationCommand = Get-ValidationCommandLine `
     -DataServices $selection.DataServices `
     -IncludeJenkins ([bool]$IncludeJenkins) `
     -PrepareHelmRepos ($helmReleases.Count -gt 0) `
-    -IncludeCrdBackedResources ($crdBackedManifestEntries.Count -gt 0)
+    -IncludeCrdBackedResources $false
+
+$recommendedCrdBackedValidationCommand = ""
+if ($crdBackedManifestEntries.Count -gt 0) {
+    $recommendedCrdBackedValidationCommand = Get-ValidationCommandLine `
+        -ValuesFile $resolvedValuesFile `
+        -Profile $selection.Profile `
+        -Applications $selection.Applications `
+        -DataServices $selection.DataServices `
+        -IncludeJenkins ([bool]$IncludeJenkins) `
+        -PrepareHelmRepos ($helmReleases.Count -gt 0) `
+        -IncludeCrdBackedResources $true
+}
 
 $recommendedBootstrapValidationCommand = ""
 if ($bootstrapSecretEntries.Count -gt 0) {
@@ -401,6 +413,7 @@ switch ($Format) {
             AvailableChecks = @($availableChecks)
             BlockedChecks = @($blockedChecks)
             RecommendedValidationCommand = $recommendedValidationCommand
+            RecommendedCrdBackedValidationCommand = $recommendedCrdBackedValidationCommand
             RecommendedBootstrapValidationCommand = $recommendedBootstrapValidationCommand
         } | ConvertTo-Json -Depth 10)
     }
@@ -490,6 +503,10 @@ switch ($Format) {
         $lines += ".\scripts\validate-workstation.ps1"
         $lines += (".\scripts\show-validation-readiness.ps1 -Profile " + $selection.Profile + " -ValuesFile " + $resolvedValuesFile + " -Format markdown")
         $lines += $recommendedValidationCommand
+        if ($recommendedCrdBackedValidationCommand) {
+            $lines += "# Optional after CRD schemas are available:"
+            $lines += $recommendedCrdBackedValidationCommand
+        }
         if ($recommendedBootstrapValidationCommand) {
             $lines += $recommendedBootstrapValidationCommand
         }
@@ -563,6 +580,10 @@ switch ($Format) {
         $lines += ""
         $lines += "Recommended validation command"
         $lines += ("- " + $recommendedValidationCommand)
+        if ($recommendedCrdBackedValidationCommand) {
+            $lines += "Optional CRD-backed validation command"
+            $lines += ("- " + $recommendedCrdBackedValidationCommand)
+        }
         if ($recommendedBootstrapValidationCommand) {
             $lines += ("- " + $recommendedBootstrapValidationCommand)
         }

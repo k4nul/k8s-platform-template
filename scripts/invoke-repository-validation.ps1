@@ -72,11 +72,11 @@ $resolvedHelmConfigFile = ""
 $Applications = @(Normalize-List -Values $Applications)
 $DataServices = @(Normalize-List -Values $DataServices)
 
-if ($PSBoundParameters.ContainsKey("RenderedPath") -and $RenderedPath) {
+if ($RenderedPath) {
     $resolvedRenderedPath = Resolve-RepoPath -Root $root -Path $RenderedPath
 }
 
-if ($PSBoundParameters.ContainsKey("HelmConfigFile") -and $HelmConfigFile) {
+if ($HelmConfigFile) {
     $resolvedHelmConfigFile = Resolve-RepoPath -Root $root -Path $HelmConfigFile
 }
 

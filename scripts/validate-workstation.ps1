@@ -92,9 +92,10 @@ $report | Format-Table -AutoSize
 $missingRequired = $report | Where-Object { $_.Required -and -not $_.Installed }
 
 if ($missingRequired) {
-    Write-Warning ("Missing required tools: {0}" -f (($missingRequired | Select-Object -ExpandProperty Tool) -join ", "))
+    $missingRequiredToolNames = (($missingRequired | Select-Object -ExpandProperty Tool) -join ", ")
+    Write-Warning ("Missing required tools: {0}" -f $missingRequiredToolNames)
     if ($Strict) {
-        exit 1
+        throw ("Missing required workstation tools: {0}" -f $missingRequiredToolNames)
     }
 }
 else {
