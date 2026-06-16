@@ -101,6 +101,153 @@ function Invoke-RenderedManifestValidator {
     throw ("Unsupported rendered manifest validator: {0}" -f $Validator)
 }
 
+function Test-MeaningfulYamlDocument {
+    param(
+        [string]$Content
+    )
+
+    foreach ($line in ($Content -split "`r?`n")) {
+        $trimmed = $line.Trim()
+        if ($trimmed -and -not $trimmed.StartsWith("#")) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-YamlDocumentMetadata {
+    param(
+        [string]$Document
+    )
+
+    $apiVersion = ""
+    $kind = ""
+    $name = ""
+
+    $apiVersionMatch = [regex]::Match($Document, '(?m)^apiVersion:\s*(.+)$')
+    if ($apiVersionMatch.Success) {
+        $apiVersion = Normalize-ApiVersionValue -Value $apiVersionMatch.Groups[1].Value
+    }
+
+    $kindMatch = [regex]::Match($Document, '(?m)^kind:\s*(.+)$')
+    if ($kindMatch.Success) {
+        $kind = Normalize-ApiVersionValue -Value $kindMatch.Groups[1].Value
+    }
+
+    $metadataMatch = [regex]::Match($Document, '(?ms)^metadata:\s*\r?\n(?<body>(?:[ \t].*(?:\r?\n|$))*)')
+    if ($metadataMatch.Success) {
+        $metadataBody = $metadataMatch.Groups["body"].Value
+        $nameMatch = [regex]::Match($metadataBody, '(?m)^\s*name:\s*(.+)$')
+        if ($nameMatch.Success) {
+            $name = Normalize-ApiVersionValue -Value $nameMatch.Groups[1].Value
+        }
+    }
+
+    return [PSCustomObject]@{
+        ApiVersion = $apiVersion
+        Kind = $kind
+        Name = $name
+    }
+}
+
+function Invoke-RenderedManifestStructuralPreflight {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.List[object]]$Targets,
+
+        [switch]$ValidateCrdBackedResources
+    )
+
+    $validated = New-Object System.Collections.Generic.List[object]
+    $skipped = New-Object System.Collections.Generic.List[object]
+    $failed = New-Object System.Collections.Generic.List[object]
+
+    Write-Host "Built-in rendered manifest structural preflight: apiVersion, kind, and metadata.name"
+
+    foreach ($target in $Targets) {
+        if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
+            $skipped.Add([PSCustomObject]@{
+                Category = $target.Category
+                File = $target.RelativePath
+                Reason = "Skipped CRD-backed resource validation. Use -ValidateCrdBackedResources to include it."
+            }) | Out-Null
+            continue
+        }
+
+        $content = Get-Content -Path $target.File -Raw
+        $documents = @(
+            [regex]::Split($content, '(?m)^\s*---\s*(?:#.*)?$') |
+                Where-Object { Test-MeaningfulYamlDocument -Content $_ }
+        )
+
+        if ($documents.Count -eq 0) {
+            $failed.Add([PSCustomObject]@{
+                Category = $target.Category
+                File = $target.RelativePath
+                Message = "YAML file did not contain a Kubernetes document."
+            }) | Out-Null
+            continue
+        }
+
+        $documentIndex = 0
+        foreach ($document in $documents) {
+            $documentIndex++
+            $metadata = Get-YamlDocumentMetadata -Document $document
+            $missingFields = @()
+
+            if (-not $metadata.ApiVersion) {
+                $missingFields += "apiVersion"
+            }
+
+            if (-not $metadata.Kind) {
+                $missingFields += "kind"
+            }
+
+            if (-not $metadata.Name) {
+                $missingFields += "metadata.name"
+            }
+
+            if ($missingFields.Count -gt 0) {
+                $failed.Add([PSCustomObject]@{
+                    Category = $target.Category
+                    File = $target.RelativePath
+                    Message = ("Document {0} is missing: {1}" -f $documentIndex, ($missingFields -join ", "))
+                }) | Out-Null
+            }
+        }
+
+        if ($failed.Count -eq 0 -or @($failed | Where-Object { $_.File -eq $target.RelativePath }).Count -eq 0) {
+            $validated.Add([PSCustomObject]@{
+                Category = $target.Category
+                File = $target.RelativePath
+            }) | Out-Null
+        }
+    }
+
+    $validatedK8sCount = @($validated | Where-Object { $_.Category -eq "Kubernetes manifests" }).Count
+    $validatedBootstrapNamespaceCount = @($validated | Where-Object { $_.Category -eq "Bootstrap namespace templates" }).Count
+    $validatedBootstrapSecretCount = @($validated | Where-Object { $_.Category -eq "Bootstrap secret templates" }).Count
+
+    Write-Host ("Structurally validated Kubernetes manifests: {0}" -f $validatedK8sCount)
+    Write-Host ("Structurally validated bootstrap namespace templates: {0}" -f $validatedBootstrapNamespaceCount)
+    Write-Host ("Structurally validated bootstrap secret templates: {0}" -f $validatedBootstrapSecretCount)
+
+    if ($skipped.Count -gt 0) {
+        Write-Host ("Skipped rendered YAML files: {0}" -f $skipped.Count)
+        $skipped | Format-Table -AutoSize
+    }
+
+    if ($failed.Count -gt 0) {
+        Write-Host ("Failed rendered YAML files: {0}" -f $failed.Count)
+        $failed | Format-Table -AutoSize
+        $failedFiles = @($failed | Select-Object -ExpandProperty File -Unique)
+        throw ("Rendered manifest structural preflight failed: {0}" -f ($failedFiles -join ", "))
+    }
+
+    Write-Host "Rendered manifest structural preflight completed successfully."
+}
+
 function Add-RenderedYamlValidationTargets {
     param(
         [Parameter(Mandatory = $true)]
@@ -176,6 +323,9 @@ $failed = New-Object System.Collections.Generic.List[object]
 $validator = Get-RenderedManifestValidator -RequestedValidator $SchemaValidator -Strict:$Strict
 
 if (-not $validator) {
+    Invoke-RenderedManifestStructuralPreflight `
+        -Targets $validationTargets `
+        -ValidateCrdBackedResources:$ValidateCrdBackedResources
     return
 }
 

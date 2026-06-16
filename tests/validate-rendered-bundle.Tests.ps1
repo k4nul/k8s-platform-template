@@ -201,7 +201,40 @@ Invoke-Test -Name "Rendered bundle validation skips schema validation without to
         Invoke-WithEmptyToolPath -Body {
             $output = (& $validateRenderedScript -RenderedPath $testRoot 6>&1 3>&1 2>&1 | Out-String)
             Assert-Contains -Content $output -Expected "Skipping rendered manifest validation" -Message "Non-strict validation should explain the skipped schema gate."
+            Assert-Contains -Content $output -Expected "Built-in rendered manifest structural preflight" -Message "Non-strict validation should still run a repository-local structural preflight."
+            Assert-Contains -Content $output -Expected "Structurally validated Kubernetes manifests: 1" -Message "The structural preflight should validate the rendered Kubernetes manifest target."
         }
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Rendered bundle validation structural preflight reports malformed YAML targets" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestYamlFile `
+            -Root $testRoot `
+            -RelativePath "k8s\configmap.yaml" `
+            -Content "apiVersion: v1`nkind: ConfigMap`nmetadata:`n  labels:`n    app: malformed`n"
+
+        $failed = Invoke-WithEmptyToolPath -Body {
+            try {
+                $output = & $validateRenderedScript -RenderedPath $testRoot 6>&1 3>&1 2>&1
+                $outputText = ($output | Out-String)
+                Assert-Contains -Content $outputText -Expected "k8s/configmap.yaml" -Message "Structural preflight output should include the malformed relative YAML path."
+                return $false
+            }
+            catch {
+                Assert-Contains -Content $_.Exception.Message -Expected "Rendered manifest structural preflight failed" -Message "Malformed YAML should fail the built-in structural preflight."
+                return $true
+            }
+        }
+
+        Assert-True -Condition $failed -Message "A malformed rendered manifest should fail without requiring external schema tools."
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {

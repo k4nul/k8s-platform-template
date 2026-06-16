@@ -193,12 +193,15 @@ Selection behavior:
 
 - `kubeconform` is used first when it is installed.
 - If `kubeconform` is unavailable, `kubectl apply --dry-run=client --validate=true` is used when `kubectl` is installed.
-- If neither validator is installed, non-strict validation warns and skips rendered manifest schema validation.
+- If neither validator is installed, non-strict validation warns, skips external rendered manifest schema validation, and still runs a built-in structural preflight for `apiVersion`, `kind`, and `metadata.name`.
 - Strict validation fails when no schema validator is available.
 
 CRD-backed resources are skipped by default because public repository validation should not require cluster-installed CRDs. Add `-ValidateCrdBackedResources` only after the required CRDs are available to the selected validator.
 
-The rendered-bundle validator tests cover the no-validator path directly: default template validation may skip schema validation with a warning, while `-Strict` must fail until `kubeconform` or `kubectl` is available.
+The rendered-bundle validator tests cover the no-validator path directly:
+default template validation may skip external schema validation with a warning,
+but it still fails malformed rendered YAML through the structural preflight.
+`-Strict` must fail until `kubeconform` or `kubectl` is available.
 
 Use `validate-rendered-bundle.ps1 -SchemaValidator kubeconform` or
 `-SchemaValidator kubectl` only when you want to force one validator during
