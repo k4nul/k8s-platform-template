@@ -33,7 +33,8 @@ manifests, or generated rendered bundles in this template.
 - Use `invoke-repository-validation.ps1 -EnvironmentPreset dev` when the
   workstation has the stricter `kubectl` and `helm` prerequisites available.
 - Use `show-validation-readiness.ps1` before treating missing Kubernetes tools as
-  template defects.
+  template defects. Its grouped requirement summary treats `kubeconform or
+  kubectl` as one schema-validator requirement and reports `helm` separately.
 - Do not commit rendered `out/` bundles, kubeconfigs, secrets, generated local
   env files, or private agent files.
 

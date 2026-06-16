@@ -244,6 +244,33 @@ foreach ($definition in $toolDefinitions) {
 $requiredTools = @($toolReport | Where-Object { $_.RequiredForSelectedValidation })
 $missingRequiredTools = @($requiredTools | Where-Object { -not $_.Installed })
 $installedRequiredTools = @($requiredTools | Where-Object { $_.Installed })
+$installedSchemaValidators = @(
+    @("kubeconform", "kubectl") |
+        Where-Object {
+            $toolName = $_
+            @($toolReport | Where-Object { $_.Tool -eq $toolName -and $_.Installed }).Count -gt 0
+        }
+)
+$schemaValidatorRequirement = [PSCustomObject]@{
+    Required = [bool]$requiresRenderedManifestValidation
+    Satisfied = [bool]((-not $requiresRenderedManifestValidation) -or @($installedSchemaValidators).Count -gt 0)
+    AcceptedTools = @("kubeconform", "kubectl")
+    InstalledValidators = @($installedSchemaValidators)
+    MissingRequirement = if ($requiresRenderedManifestValidation -and @($installedSchemaValidators).Count -eq 0) { "kubeconform or kubectl" } else { "" }
+}
+$helmCommand = Get-Command helm -ErrorAction SilentlyContinue
+$installedHelmTools = if ($null -ne $helmCommand) { @("helm") } else { @() }
+$helmRequirement = [PSCustomObject]@{
+    Required = [bool]$requiresHelm
+    Satisfied = [bool]((-not $requiresHelm) -or $null -ne $helmCommand)
+    AcceptedTools = @("helm")
+    InstalledTools = @($installedHelmTools)
+    MissingRequirement = if ($requiresHelm -and $null -eq $helmCommand) { "helm" } else { "" }
+}
+$missingRequiredToolRequirements = @(
+    $schemaValidatorRequirement.MissingRequirement,
+    $helmRequirement.MissingRequirement
+) | Where-Object { $_ }
 
 $readinessStatus = if ($missingRequiredTools.Count -eq 0) {
     "full-bundle-validation-available"
@@ -310,6 +337,7 @@ $serviceDirectoriesText = Get-TextList -Values $effectiveServiceDirectories
 $bootstrapNamespaceText = Get-TextList -Values @($bootstrapNamespaceEntries | Select-Object -ExpandProperty Namespace)
 $bootstrapSecretText = Get-TextList -Values @($bootstrapSecretEntries | ForEach-Object { "{0}/{1}" -f $_.Namespace, $_.Name })
 $missingRequiredToolsText = Get-TextList -Values @($missingRequiredTools | Select-Object -ExpandProperty Tool)
+$missingRequiredToolRequirementsText = Get-TextList -Values @($missingRequiredToolRequirements)
 $helmReleaseJsonEntries = @($helmReleases | ForEach-Object {
     [PSCustomObject]@{
         Name = $_.Name
@@ -341,6 +369,9 @@ switch ($Format) {
             IncludeJenkins = [bool]$IncludeJenkins
             ReadinessStatus = $readinessStatus
             MissingRequiredTools = @($missingRequiredTools | Select-Object -ExpandProperty Tool)
+            MissingRequiredToolRequirements = @($missingRequiredToolRequirements)
+            SchemaValidatorRequirement = $schemaValidatorRequirement
+            HelmRequirement = $helmRequirement
             ToolReport = @($toolReport)
             RawComponents = @($rawComponents)
             DeferredComponents = @($deferredComponents)
@@ -377,7 +408,13 @@ switch ($Format) {
             ("- Bootstrap secret templates: " + [string]$bootstrapSecretEntries.Count),
             ("- Helm components: " + [string]$helmReleases.Count),
             ("- Readiness status: " + $readinessStatus),
+            ("- Missing required tool requirements for this bundle: " + $missingRequiredToolRequirementsText),
             ("- Missing required tools for this bundle: " + $missingRequiredToolsText),
+            "",
+            "## Requirement Summary",
+            "",
+            ("- Rendered schema validator: " + $(if ($schemaValidatorRequirement.Satisfied) { "satisfied" } elseif ($schemaValidatorRequirement.Required) { "blocked until kubeconform or kubectl is installed" } else { "not required for this bundle" })),
+            ("- Helm validation: " + $(if ($helmRequirement.Satisfied) { "satisfied" } elseif ($helmRequirement.Required) { "blocked until helm is installed" } else { "not required for this bundle" })),
             "",
             "## Tool Status",
             "",
@@ -461,7 +498,12 @@ switch ($Format) {
             ("Bootstrap secret templates: " + [string]$bootstrapSecretEntries.Count),
             ("Helm components: " + [string]$helmReleases.Count),
             ("Readiness status: " + $readinessStatus),
+            ("Missing required tool requirements: " + $missingRequiredToolRequirementsText),
             ("Missing required tools: " + $missingRequiredToolsText),
+            "",
+            "Requirement summary",
+            ("- Rendered schema validator: " + $(if ($schemaValidatorRequirement.Satisfied) { "satisfied" } elseif ($schemaValidatorRequirement.Required) { "blocked until kubeconform or kubectl is installed" } else { "not required for this bundle" })),
+            ("- Helm validation: " + $(if ($helmRequirement.Satisfied) { "satisfied" } elseif ($helmRequirement.Required) { "blocked until helm is installed" } else { "not required for this bundle" })),
             "",
             "Tool status"
         )

@@ -69,7 +69,8 @@ $expectedPaths = @(
     "tests\validate-render-manifests.Tests.ps1",
     "tests\validate-rendered-bundle.Tests.ps1",
     "tests\validate-kubernetes-security-baseline.Tests.ps1",
-    "tests\validate-render-matrix.Tests.ps1"
+    "tests\validate-render-matrix.Tests.ps1",
+    "tests\show-validation-readiness.Tests.ps1"
 )
 
 foreach ($relativePath in $expectedPaths) {
@@ -91,6 +92,7 @@ $placeholderTests = Join-Path $root "tests\validate-check-placeholders.Tests.ps1
 $renderedBundleTests = Join-Path $root "tests\validate-rendered-bundle.Tests.ps1"
 $securityBaselineTests = Join-Path $root "tests\validate-kubernetes-security-baseline.Tests.ps1"
 $renderMatrixTests = Join-Path $root "tests\validate-render-matrix.Tests.ps1"
+$validationReadinessTests = Join-Path $root "tests\show-validation-readiness.Tests.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 
@@ -125,6 +127,7 @@ foreach ($term in $securityBaselineTerms) {
 & $renderedBundleTests
 & $securityBaselineTests
 & $renderMatrixTests
+& $validationReadinessTests
 & $serviceCatalogValidation -RepoRoot $root
 & $serviceBuildValidation -RepoRoot $root
 & $serviceConfigValidation -RepoRoot $root -ValuesFile $publicValuesFile

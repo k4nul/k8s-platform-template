@@ -22,6 +22,11 @@ This directory contains the main entry-point scripts for inspecting, validating,
 
 Rendered bundles also include `VALIDATION_READINESS.md`, `CLUSTER_PREFLIGHT.md`, and `CLUSTER_SECRET_PLAN.md` for the selected profile and values file.
 
+`show-validation-readiness.ps1 -Format json` includes both the raw missing tool
+list and grouped requirement fields. In particular, rendered schema validation is
+reported as the single requirement `kubeconform or kubectl`, because either tool
+satisfies the repository-local schema-validation path.
+
 ### Validate
 
 - `validate-template.ps1`: validate repository structure and example assets
@@ -37,7 +42,7 @@ Rendered manifest schema validation uses `kubeconform` when it is available and 
 
 The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip when neither `kubeconform` nor `kubectl` is installed; strict validation is expected to fail until one of those tools is available.
 
-`invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine.
+`invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine and whether a blocked schema check needs one validator tool or a specific missing tool.
 
 The completed phase transition from `schema-security-baseline` to
 `template-maintenance` used the template validation command, which remains the

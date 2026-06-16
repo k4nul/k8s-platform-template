@@ -72,6 +72,11 @@ readiness issue, because strict repository validation checks for tools such as
 `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown`
 to separate missing local tools from template render failures before changing
 manifests.
+In JSON mode, the readiness report includes `MissingRequiredToolRequirements`,
+`SchemaValidatorRequirement`, and `HelmRequirement`. Use those grouped fields
+when automation needs to distinguish the alternative schema-validator
+requirement, `kubeconform or kubectl`, from specific missing tools such as
+`helm`.
 
 For the full evidence order used during recurring maintenance, including the
 readiness report and strict workstation check, see [maintenance.md](maintenance.md).
@@ -100,6 +105,9 @@ The validator order is:
 4. A strict failure when neither tool is installed and strict validation is requested.
 
 Install `kubeconform` when you want repository-only schema validation without a live cluster dependency. Use `kubectl` when you also need cluster-side workflows. If CI must prove one path specifically, pass `-SchemaValidator kubeconform` or `-SchemaValidator kubectl` to the top-level validation command; strict mode will fail clearly when that requested validator is unavailable.
+Readiness output reports the unpinned schema-validator need as one grouped
+requirement because either `kubeconform` or `kubectl` satisfies the default
+rendered-manifest validation path.
 
 ## CRD-backed Resources Are Skipped
 

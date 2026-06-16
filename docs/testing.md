@@ -18,6 +18,9 @@ Check the local machine with:
 ```
 
 `show-validation-readiness.ps1` is the bundle-specific readiness view. It tells you which checks are available on the current machine and which checks are blocked for the selected profile.
+Its JSON output includes grouped requirement fields so automation can treat
+`kubeconform or kubectl` as one schema-validator requirement while still listing
+the raw missing tools in the tool report.
 
 `invoke-repository-validation.ps1` runs `validate-workstation.ps1 -Strict` unless you pass `-SkipWorkstationValidation`. The default strict workstation profile requires `kubectl` and `helm`, even when `validate-template.ps1` can still complete with non-strict schema and Helm warnings. Use the skip switch only when you are intentionally doing repository-only validation on a machine that is not prepared for cluster or Helm workflows.
 
@@ -171,6 +174,9 @@ validator at the top-level command instead of depending on leaf-script
 auto-selection. The default `auto` mode should stay in normal repository
 validation so machines with `kubeconform` get offline schema checks and machines
 with only `kubectl` still exercise the client dry-run path.
+Readiness reports use the same model: if neither validator is installed, the
+missing requirement is `kubeconform or kubectl`; if either validator is
+installed, the rendered schema-validation requirement is satisfied.
 
 ## Kubernetes Security Baseline
 
