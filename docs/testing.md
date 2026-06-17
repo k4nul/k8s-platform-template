@@ -135,6 +135,10 @@ The maintenance gate currently covers:
 - render matrix validation for every bundled environment preset and every
   public profile shape
 
+The current maintenance manifest selects `public-default-security-review` as the
+next scope. See [maintenance.md](maintenance.md) for the current review focus,
+transition evidence path, and guardrails.
+
 After this gate passes, keep profile and environment coverage stable while the
 phase transition updates the project metadata. Do not introduce a live cluster
 requirement, private image default, or committed rendered bundle as part of the
@@ -177,10 +181,11 @@ The profile matrix adds representative application and data-service combinations
 | `shared-services` | `nginx-web`, `adminer` | `postgresql`, `redis` |
 | `full` | `nginx-web`, `httpbin`, `whoami`, `adminer` | `mysql`, `postgresql`, `redis` |
 
-For `full`, the validation data-service selection is the public matrix input.
-The profile still renders all standard Kubernetes component directories through
-its include-all profile behavior. Keep this distinction clear when adding matrix
-coverage: validation selections are representative public inputs, not a complete
+The table lists validation selections, not the complete rendered inventory for
+each profile. A profile can render additional component directories through
+`K8sDirectories`, `ServiceDirectories`, `IncludeAllK8s`, or
+`IncludeAllServices`. Keep this distinction clear when adding matrix coverage:
+validation selections are representative public inputs, not a complete
 inventory of every rendered source directory.
 
 Optional follow-up manifests are intentionally excluded from generated bundles

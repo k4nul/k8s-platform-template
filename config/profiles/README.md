@@ -45,8 +45,10 @@ and run:
 ```
 
 The profile matrix uses those validation selections as representative public
-inputs. They do not have to list every directory that an include-all profile can
-render.
+inputs. They do not have to list every Kubernetes or service directory the
+profile can render. For example, a profile can own additional platform
+directories through `K8sDirectories` while its `ValidationApplications` and
+`ValidationDataServices` keep the public validation input small and repeatable.
 
 Optional follow-up manifests, such as the Kubernetes Dashboard sample viewer
 and the VPA example object, are listed in platform plans but are not copied into

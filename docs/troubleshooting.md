@@ -143,7 +143,16 @@ Use `-FailOnHighSecurityBaselineFinding` when high-severity baseline findings sh
 
 ## Generated Bundle Validation Order
 
-After `invoke-bundle-delivery.ps1`, use the generated bundle helpers before applying manifests:
+After `invoke-bundle-delivery.ps1`, use the generated bundle helpers before applying manifests. The one-shot path is:
+
+```powershell
+.\out\delivery\dev\validate-bundle.ps1
+.\out\delivery\dev\cluster-bootstrap\status-secrets.ps1
+.\out\delivery\dev\deploy-bundle.ps1 -PrepareHelmRepos
+.\out\delivery\dev\status-bundle.ps1
+```
+
+For manual step-by-step rollout, run the lower-level helpers in order:
 
 ```powershell
 .\out\delivery\dev\validate-bundle.ps1

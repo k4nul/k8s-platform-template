@@ -71,3 +71,18 @@ If you only want to use the repository, you usually do not need to edit them imm
 3. Adjust `service-runtime.env.example` if you want local compose runs
 4. Render or validate a bundle
 5. Only then change profiles or catalogs if the overall template shape needs to change
+
+## Validation Values
+
+Environment presets can define both a site-specific `ValuesFile` and a public
+`ValidationValuesFile`. Repository validation uses `ValidationValuesFile` when
+it is present and no explicit `-ValuesFile` is passed, so the bundled presets
+validate against `config/platform-values.env.example` by default.
+
+After you edit a generated values file, validate that file explicitly:
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```

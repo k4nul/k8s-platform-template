@@ -75,8 +75,13 @@ See [../docs/testing.md](../docs/testing.md) for the command matrix, validator f
 .\scripts\validate-render-matrix.ps1
 .\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev -ValuesFile config\platform-values.dev.env
 .\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
 ```
+
+The preset-only repository validation uses the preset `ValidationValuesFile`
+when one is configured. Run the explicit `-ValuesFile` form after editing the
+generated environment values file.
 
 ## When To Use Which Script
 

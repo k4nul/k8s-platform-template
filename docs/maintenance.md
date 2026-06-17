@@ -102,6 +102,23 @@ For automation reports, record the first failing command, whether the template
 gate passed, and whether the readiness report lists a missing grouped
 requirement such as `kubeconform or kubectl`.
 
+## Phase Transition Readiness
+
+`docs/instructions/phase-gates.json` records `template-maintenance` as the
+current phase and `public-default-security-review` as the selected next phase.
+Its transition validation command is the same template maintenance gate:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+When that command passes, a phase-transition run should only update the phase
+manifest files listed in `transition.phase_update_files`. It should not add new
+platform scope, require live cluster access, introduce private image defaults,
+or commit rendered bundles. Continue using docs-update, maintenance-audit, and
+security-review work to clarify evidence or review public-default posture while
+the project remains in `template-maintenance`.
+
 ## Public Defaults And Values Files
 
 The maintenance gate explicitly uses `config/platform-values.env.example` for

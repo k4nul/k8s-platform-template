@@ -123,8 +123,14 @@ See [services/README.md](services/README.md) for the local examples.
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev -ValuesFile config\platform-values.dev.env
 .\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
 ```
+
+The first validation command checks the preset through its public
+`ValidationValuesFile`. Use the second form after editing
+`config/platform-values.dev.env` so site-specific values are validated before
+delivery.
 
 The rendered bundle will include `k8s/`, `services/`, planning documents, and readiness documents under `out/`.
 
