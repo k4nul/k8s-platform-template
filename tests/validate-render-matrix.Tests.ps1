@@ -152,6 +152,107 @@ function New-TestProfileDefinition {
         -Value $Lines
 }
 
+function New-TestTextFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RelativePath,
+
+        [string[]]$Lines
+    )
+
+    $targetPath = Join-Path $Root $RelativePath
+    $targetDirectory = Split-Path -Path $targetPath -Parent
+    if ($targetDirectory) {
+        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+    }
+
+    Set-Content -Path $targetPath -Value $Lines
+}
+
+function New-TestPlatformAssetsRecorder {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "scripts\validate-platform-assets.ps1" `
+        -Lines @(
+            "param(",
+            "    [string]`$RepoRoot,",
+            "    [string]`$ValuesFile,",
+            "    [string]`$Version,",
+            "    [string]`$Profile,",
+            "    [string[]]`$Applications = @(),",
+            "    [string[]]`$DataServices = @(),",
+            "    [switch]`$IncludeJenkins,",
+            "    [switch]`$Strict,",
+            "    [switch]`$ValidateCrdBackedResources,",
+            "    [ValidateSet('auto', 'kubeconform', 'kubectl')]",
+            "    [string]`$SchemaValidator = 'auto',",
+            "    [switch]`$FailOnHighSecurityBaselineFinding",
+            ")",
+            "",
+            "`$record = [PSCustomObject]@{",
+            "    RepoRoot = `$RepoRoot",
+            "    ValuesFile = `$ValuesFile",
+            "    Version = `$Version",
+            "    Profile = `$Profile",
+            "    Applications = @(`$Applications)",
+            "    DataServices = @(`$DataServices)",
+            "    IncludeJenkins = [bool]`$IncludeJenkins",
+            "    Strict = [bool]`$Strict",
+            "    ValidateCrdBackedResources = [bool]`$ValidateCrdBackedResources",
+            "    SchemaValidator = `$SchemaValidator",
+            "    FailOnHighSecurityBaselineFinding = [bool]`$FailOnHighSecurityBaselineFinding",
+            "}",
+            "",
+            "Add-Content -Path `$env:RENDER_MATRIX_ASSET_LOG -Value (`$record | ConvertTo-Json -Compress)"
+        )
+}
+
+function New-TestRenderMatrixRepo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "config\platform-values.env.example" `
+        -Lines @("PLATFORM_DOMAIN=example.com")
+
+    New-TestEnvironmentPreset `
+        -Root $Root `
+        -Name "dev" `
+        -Lines @(
+            "@{",
+            "    Version = '1.2.3-dev'",
+            "    Profile = 'web-platform'",
+            "    Applications = @('nginx-web,httpbin', ' whoami ')",
+            "    DataServices = @('redis')",
+            "    IncludeJenkins = `$true",
+            "    ValidationValuesFile = 'config\platform-values.env.example'",
+            "}"
+        )
+
+    New-TestProfileDefinition `
+        -Root $Root `
+        -Name "minimal-application" `
+        -Lines @(
+            "@{",
+            "    ValidationApplications = @('nginx-web')",
+            "    ValidationDataServices = @()",
+            "}"
+        )
+
+    New-TestPlatformAssetsRecorder -Root $Root
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
@@ -564,6 +665,82 @@ Invoke-Test -Name "Combined render validation matrix is ordered and overrideable
     $overrideEntries = @(Get-RenderValidationMatrix -Root $repoRoot -DefaultValuesFile $defaultValuesFile -ValuesFile "custom.env")
     foreach ($entry in $overrideEntries) {
         Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
+    }
+}
+
+Invoke-Test -Name "Render matrix validation forwards validator and security options to each entry" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+
+    try {
+        New-TestRenderMatrixRepo -Root $testRoot
+        $env:RENDER_MATRIX_ASSET_LOG = $logPath
+
+        & $renderMatrixValidation `
+            -RepoRoot $testRoot `
+            -Strict `
+            -ValidateCrdBackedResources `
+            -SchemaValidator kubectl `
+            -FailOnHighSecurityBaselineFinding 3>&1 2>&1 | Out-String | Out-Null
+
+        $records = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })
+
+        Assert-Equal -Expected 2 -Actual $records.Count -Message "The validation command should invoke asset validation for each environment and profile matrix entry."
+        foreach ($record in $records) {
+            Assert-True -Condition $record.Strict -Message ("Strict mode should be forwarded for {0}." -f $record.Profile)
+            Assert-True -Condition $record.ValidateCrdBackedResources -Message ("CRD-backed resource validation should be forwarded for {0}." -f $record.Profile)
+            Assert-Equal -Expected "kubectl" -Actual $record.SchemaValidator -Message ("Schema validator selection should be forwarded for {0}." -f $record.Profile)
+            Assert-True -Condition $record.FailOnHighSecurityBaselineFinding -Message ("Security baseline fail-on-high should be forwarded for {0}." -f $record.Profile)
+        }
+    }
+    finally {
+        Remove-Item Env:RENDER_MATRIX_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Render matrix validation forwards normalized environment and profile metadata" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+
+    try {
+        New-TestRenderMatrixRepo -Root $testRoot
+        $env:RENDER_MATRIX_ASSET_LOG = $logPath
+
+        & $renderMatrixValidation `
+            -RepoRoot $testRoot 3>&1 2>&1 | Out-String | Out-Null
+
+        $records = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })
+        $environmentRecord = @($records | Where-Object { $_.Profile -eq "web-platform" })[0]
+        $profileRecord = @($records | Where-Object { $_.Profile -eq "minimal-application" })[0]
+        $expectedValuesFile = Resolve-RenderMatrixRepoPath -Root $testRoot -Path "config\platform-values.env.example"
+
+        Assert-Equal -Expected $testRoot -Actual $environmentRecord.RepoRoot -Message "Asset validation should receive the selected repository root."
+        Assert-Equal -Expected $expectedValuesFile -Actual $environmentRecord.ValuesFile -Message "Environment values files should be resolved before asset validation."
+        Assert-Equal -Expected "1.2.3-dev" -Actual $environmentRecord.Version -Message "Environment versions should be forwarded."
+        Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($environmentRecord.Applications) -Message "Environment applications should be normalized before asset validation."
+        Assert-SequenceEqual -Expected @("redis") -Actual @($environmentRecord.DataServices) -Message "Environment data services should be normalized before asset validation."
+        Assert-True -Condition $environmentRecord.IncludeJenkins -Message "Environment IncludeJenkins should be forwarded."
+
+        Assert-Equal -Expected $expectedValuesFile -Actual $profileRecord.ValuesFile -Message "Profile entries should use the public default values file."
+        Assert-Equal -Expected "0.0.0-matrix" -Actual $profileRecord.Version -Message "Profile entries should use the default matrix version."
+        Assert-SequenceEqual -Expected @("nginx-web") -Actual @($profileRecord.Applications) -Message "Profile validation applications should be forwarded."
+        Assert-SequenceEqual -Expected @() -Actual @($profileRecord.DataServices) -Message "Profile validation data services should be forwarded."
+        Assert-False -Condition $profileRecord.IncludeJenkins -Message "Profile IncludeJenkins should be false unless explicitly configured."
+    }
+    finally {
+        Remove-Item Env:RENDER_MATRIX_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
     }
 }
 
