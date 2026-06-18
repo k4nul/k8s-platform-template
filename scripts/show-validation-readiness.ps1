@@ -17,6 +17,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "platform-catalog.ps1")
 . (Join-Path $PSScriptRoot "cluster-secret-catalog.ps1")
 . (Join-Path $PSScriptRoot "kubernetes-manifest-utils.ps1")
+. (Join-Path $PSScriptRoot "repository-workflow-helpers.ps1")
 
 function Get-ToolVersion {
     param(
@@ -137,8 +138,8 @@ if (-not $PSBoundParameters.ContainsKey("ValuesFile") -or -not $ValuesFile) {
 }
 
 $root = (Resolve-Path -Path $RepoRoot).Path
-$resolvedHelmConfig = (Resolve-Path -Path $HelmConfigFile).Path
-$resolvedValuesFile = [System.IO.Path]::GetFullPath($ValuesFile)
+$resolvedHelmConfig = Resolve-RepoPath -Root $root -Path $HelmConfigFile
+$resolvedValuesFile = Resolve-RepoPath -Root $root -Path $ValuesFile
 $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
 $clusterSecretPlan = Get-ClusterSecretPlanData `
     -RepoRoot $root `

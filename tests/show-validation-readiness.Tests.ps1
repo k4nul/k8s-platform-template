@@ -246,6 +246,39 @@ Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body 
         -Message "Markdown should still show the opt-in CRD-backed validation command."
 }
 
+Invoke-Test -Name "Readiness resolves relative input paths from the repository root" -Body {
+    $outsideRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("validation-readiness-cwd-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $outsideRoot -Force | Out-Null
+
+    try {
+        Push-Location -Path $outsideRoot
+        $json = & $readinessScript `
+            -RepoRoot $repoRoot `
+            -ValuesFile "config/platform-values.env.example" `
+            -HelmConfigFile "config/helm-releases.psd1" `
+            -Profile "web-platform" `
+            -Applications @("nginx-web", "httpbin", "whoami") `
+            -DataServices @("redis") `
+            -Format json | Out-String
+        Pop-Location
+
+        $document = $json | ConvertFrom-Json
+        Assert-Equal `
+            -Expected ([System.IO.Path]::GetFullPath((Join-Path $repoRoot "config/platform-values.env.example"))) `
+            -Actual $document.ValuesFile `
+            -Message "Relative values files should resolve from RepoRoot, not the caller working directory."
+    }
+    finally {
+        if ((Get-Location).Path -eq $outsideRoot) {
+            Pop-Location
+        }
+
+        if (Test-Path -LiteralPath $outsideRoot) {
+            Remove-Item -LiteralPath $outsideRoot -Recurse -Force
+        }
+    }
+}
+
 if ($script:TestsFailed -gt 0) {
     throw ("{0} of {1} validation readiness test(s) failed." -f $script:TestsFailed, $script:TestsRun)
 }
