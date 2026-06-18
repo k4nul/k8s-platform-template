@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-17
+Last reviewed: 2026-06-18
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -56,6 +56,8 @@ Scope:
 - Cross-check public image references across `config/service-builds.psd1`,
   `config/service-runtime-bindings.psd1`, `services/*/docker-compose.yaml`, and
   matching Kubernetes manifests.
+- Confirm service runtime plan output exposes cataloged public image references
+  instead of hiding them as unspecified image references.
 - Confirm `.gitignore` still excludes generated bundles and local secret-bearing
   files.
 
@@ -81,6 +83,7 @@ Validation:
 pwsh -NoProfile -File scripts/validate-template.ps1
 pwsh -NoProfile -File scripts/show-service-build-plan.ps1 -Format markdown
 pwsh -NoProfile -File scripts/show-service-runtime-plan.ps1 -Format markdown
+pwsh -NoProfile -File tests/show-service-runtime-plan.Tests.ps1
 ```
 
 ### Stage 3: Helm Chart Source Review
@@ -217,19 +220,26 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 
 ## Changes Made And Validation
 
+The 2026-06-18 dependency-plan pass fixed service runtime plan image inventory
+output. `show-service-runtime-plan.ps1` now reads image references from
+dictionary-backed PowerShell data file entries, so markdown and text reports show
+the cataloged public image tags instead of `not specified`. The change improves
+dependency planning evidence without changing runtime dependencies, public image
+defaults, Helm chart references, lockfiles, rendered bundles, or generated
+artifacts.
+
 The 2026-06-17 dependency-plan pass tightened validation-readiness reporting so
 the missing tool summary stays at requirement granularity. `kubectl` and
 `kubeconform` are now labeled as `schema-validator alternative` entries instead
 of both being displayed as individually required when neither is installed, while
-`helm` remains the direct required tool for Helm-backed bundles. It did not
-change runtime dependencies, public image defaults, Helm chart references,
-lockfiles, rendered bundles, or generated artifacts.
+`helm` remains the direct required tool for Helm-backed bundles.
 
 Validation commands:
 
 ```bash
 command -v pwsh
 pwsh -NoProfile -File scripts/validate-template.ps1
+pwsh -NoProfile -File tests/show-service-runtime-plan.Tests.ps1
 pwsh -NoProfile -File tests/show-validation-readiness.Tests.ps1
 pwsh -NoProfile -File tests/validate-render-matrix.Tests.ps1
 pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
@@ -241,20 +251,21 @@ pwsh -NoProfile -File scripts/show-service-dependency-plan.ps1 -Format markdown
 ```
 
 `command -v pwsh` resolved to `/home/k4nul/.local/bin/pwsh` in this worktree.
+`tests/show-service-runtime-plan.Tests.ps1`,
 `tests/show-validation-readiness.Tests.ps1`,
-`tests/validate-render-matrix.Tests.ps1`, `validate-template.ps1`, and
-`invoke-repository-validation.ps1 -EnvironmentPreset dev` completed
-successfully. The template and repository validation paths emitted expected
-non-strict warnings because `kubeconform`, `kubectl`, and `helm` were not
-installed.
+`tests/validate-render-matrix.Tests.ps1`, and `validate-template.ps1` completed
+successfully. The template validation path emitted expected non-strict warnings
+because `kubeconform`, `kubectl`, and `helm` were not installed.
 `show-validation-readiness.ps1` reported `repository-only-validation-available`
 for the selected `web-platform` bundle, missing required tool requirements of
 `kubeconform or kubectl, helm`, and the direct missing required tool `helm`.
-`validate-workstation.ps1 -Strict` failed with missing required tools: `helm`,
-`kubectl`. The service build, runtime, and dependency plan helpers completed
-successfully with all public services in the `public-image` build profile and
-dependency-plan status counts of `ready=4`, `attention=0`, `error=0`,
-`uncatalogued=0`.
+`invoke-repository-validation.ps1 -EnvironmentPreset dev` and
+`validate-workstation.ps1 -Strict` failed at workstation validation with missing
+required tools: `helm`, `kubectl`. The service build, runtime, and dependency
+plan helpers completed successfully with all public services in the
+`public-image` build profile, service runtime plan image references populated
+from the catalog, and dependency-plan status counts of `ready=4`, `attention=0`,
+`error=0`, `uncatalogued=0`.
 
 ## Current Automated Phase State
 

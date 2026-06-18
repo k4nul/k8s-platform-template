@@ -88,7 +88,16 @@ function Get-ServiceImageReference {
         [object]$Service
     )
 
-    if ($Service.PSObject.Properties.Name -contains "PublicImage" -and $Service.PublicImage) {
+    if ($Service -is [System.Collections.IDictionary]) {
+        if ($Service.Contains("PublicImage") -and $Service["PublicImage"]) {
+            return [string]$Service["PublicImage"]
+        }
+
+        if ($Service.Contains("ImagePath") -and $Service["ImagePath"]) {
+            return ('${DOCKER_REGISTRY}/' + [string]$Service["ImagePath"])
+        }
+    }
+    elseif ($Service.PSObject.Properties.Name -contains "PublicImage" -and $Service.PublicImage) {
         return [string]$Service.PublicImage
     }
 
