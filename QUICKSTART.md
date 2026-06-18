@@ -80,11 +80,14 @@ This step answers two questions before rendering:
 
 ```powershell
 .\scripts\validate-template.ps1
+.\scripts\show-render-matrix.ps1 -Format markdown
 .\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 ```
 
 Use `validate-template.ps1` for template-level sanity checks.
+
+Use `show-render-matrix.ps1` to inspect the public-default environment and profile coverage without rendering every bundle.
 
 Use `show-validation-readiness.ps1` to see which rendered-bundle checks are available on the current workstation.
 

@@ -10,6 +10,7 @@ This directory contains the main entry-point scripts for inspecting, validating,
 
 - `show-profile-catalog.ps1`: compare profiles
 - `show-environment-preset-plan.ps1`: compare environment presets
+- `show-render-matrix.ps1`: inspect the profile and environment render-validation matrix without rendering bundles
 - `show-platform-plan.ps1`: preview selected components
 - `show-platform-values-plan.ps1`: preview required values
 - `show-service-runtime-plan.ps1`: preview compose runtime variables
@@ -38,7 +39,7 @@ satisfies the repository-local schema-validation path.
 
 Rendered manifest schema validation uses `kubeconform` when it is available and falls back to `kubectl apply --dry-run=client --validate=true`. When neither external validator is installed, non-strict validation warns and still runs a built-in structural preflight for rendered YAML `apiVersion`, `kind`, and `metadata.name`. This lets repository-only validation run without a live cluster dependency while preserving the `kubectl` path used by cluster workflows. Use `-SchemaValidator kubeconform` or `-SchemaValidator kubectl` on the template, repository, matrix, or platform-asset validation commands when CI needs to pin a specific validator.
 
-`validate-template.ps1` checks required repository files, runs the lightweight PowerShell test suite, validates service catalogs and public values, performs one public smoke render, validates the rendered smoke bundle, and then calls `validate-render-matrix.ps1`. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository.
+`validate-template.ps1` checks required repository files, runs the lightweight PowerShell test suite, validates service catalogs and public values, performs one public smoke render, validates the rendered smoke bundle, and then calls `validate-render-matrix.ps1`. The smoke and matrix rendered checks fail on high-severity Kubernetes security baseline findings. The matrix validates every bundled environment preset and each public profile shape with `config/platform-values.env.example`, so template maintainers can catch profile, preset, and default-value drift without writing rendered bundles into the repository. Use `show-render-matrix.ps1 -Format markdown` or `-Format json` when you need to review the matrix coverage without running every render.
 
 The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip the external schema tool when neither `kubeconform` nor `kubectl` is installed, but the structural preflight still runs; strict validation is expected to fail until one of those tools is available.
 
@@ -71,6 +72,7 @@ See [../docs/testing.md](../docs/testing.md) for the command matrix, validator f
 
 ```powershell
 .\scripts\show-profile-catalog.ps1 -Format markdown
+.\scripts\show-render-matrix.ps1 -Format markdown
 .\scripts\new-platform-environment.ps1 -EnvironmentPreset dev -EnvironmentName dev -Force
 .\scripts\validate-render-matrix.ps1
 .\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown

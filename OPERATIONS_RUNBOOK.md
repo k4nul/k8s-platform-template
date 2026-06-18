@@ -47,7 +47,11 @@ file is passed, so `-EnvironmentPreset dev` alone validates the template's publi
 defaults rather than your edited environment file.
 
 Use this step before delivery packaging or after changing shared templates, catalogs, or preset files.
-For the detailed validation layers, including the public-default render matrix and Kubernetes security baseline behavior, see [docs/testing.md](docs/testing.md).
+Use `.\scripts\show-render-matrix.ps1 -Format markdown` when you need to inspect
+the public-default environment and profile coverage before running the heavier
+render matrix. For the detailed validation layers, including the public-default
+render matrix and Kubernetes security baseline behavior, see
+[docs/testing.md](docs/testing.md).
 
 ## 4. Build A Delivery Artifact
 

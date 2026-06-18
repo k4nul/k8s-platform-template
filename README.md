@@ -90,6 +90,10 @@ If validation fails because local tools are missing, use [docs/troubleshooting.m
 Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Preset-based repository validation uses the preset `ValidationValuesFile` when no explicit values file is passed. After editing a generated values file, validate that file explicitly:
 
 ```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+```
+
+```powershell
 .\scripts\invoke-repository-validation.ps1 `
   -EnvironmentPreset dev `
   -ValuesFile config\platform-values.dev.env

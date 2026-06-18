@@ -69,6 +69,8 @@ validator wiring, and Kubernetes security baseline checks are healthy for
 `template-maintenance`. A failing repository workflow may still be a workstation
 readiness issue, because strict repository validation checks for tools such as
 `kubectl` and `helm`. Use
+`.\scripts\show-render-matrix.ps1 -Format markdown` to inspect which public
+environment and profile matrix entry would be rendered, then use
 `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown`
 to separate missing local tools from template render failures before changing
 manifests.
@@ -86,7 +88,7 @@ Use the first failing command to choose the fix:
 | First failing check | Likely cause | Fix scope |
 | --- | --- | --- |
 | `validate-template.ps1` path or content assertion | Required repository documentation, script, catalog, test, or public values input is missing or stale. | Repository files. |
-| `validate-template.ps1` smoke render or matrix entry | A bundled environment preset, profile validation selection, public values default, or manifest source is inconsistent. | Public-default template inputs or manifests. |
+| `validate-template.ps1` smoke render or matrix entry | A bundled environment preset, profile validation selection, public values default, manifest source, or high-severity rendered security baseline finding is inconsistent. | Public-default template inputs or manifests. |
 | `show-validation-readiness.ps1` reports missing `kubeconform or kubectl` | The selected bundle needs rendered schema validation and no accepted schema validator is installed. | Workstation tooling, unless a specific validator was intentionally required by the workflow. |
 | `show-validation-readiness.ps1` reports missing `helm` | The selected profile includes Helm-managed components but Helm is unavailable. | Workstation tooling or profile selection. |
 | `validate-workstation.ps1 -Strict` fails after the template gate passes | Strict repository validation is blocked by local tool readiness. | Workstation tooling. |

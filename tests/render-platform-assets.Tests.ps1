@@ -16,6 +16,18 @@ function Assert-Contains {
     }
 }
 
+function Assert-Equal {
+    param(
+        [object]$Expected,
+        [object]$Actual,
+        [string]$Message
+    )
+
+    if ($Expected -ne $Actual) {
+        throw ("{0} Expected '{1}', got '{2}'." -f $Message, $Expected, $Actual)
+    }
+}
+
 function Invoke-Test {
     param(
         [Parameter(Mandatory = $true)]
@@ -41,6 +53,7 @@ $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 $renderScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\render-platform-assets.ps1") -Raw
 $deliveryScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\invoke-bundle-delivery.ps1") -Raw
 $assetValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-platform-assets.ps1") -Raw
+$templateValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-template.ps1") -Raw
 $secretCatalogContent = Get-Content -Path (Join-Path $repoRoot "scripts\cluster-secret-catalog.ps1") -Raw
 $secretPlanContent = Get-Content -Path (Join-Path $repoRoot "scripts\show-cluster-secret-plan.ps1") -Raw
 
@@ -64,6 +77,28 @@ Invoke-Test -Name "Delivery and validation forward custom Helm config into rende
         -Content $assetValidationScriptContent `
         -Expected '-HelmConfigFile $HelmConfigFile' `
         -Message "Platform asset validation should render temporary bundles with the requested Helm config."
+}
+
+Invoke-Test -Name "Template validation forwards rendered schema and high security gates" -Body {
+    $schemaForwardCount = ([regex]::Matches($templateValidationScriptContent, [regex]::Escape("-SchemaValidator `$SchemaValidator"))).Count
+    $highSecurityForwardCount = ([regex]::Matches($templateValidationScriptContent, [regex]::Escape("-FailOnHighSecurityBaselineFinding"))).Count
+
+    Assert-Equal `
+        -Expected 2 `
+        -Actual $schemaForwardCount `
+        -Message "Template validation should forward schema validator selection to smoke and matrix rendered checks."
+    Assert-Equal `
+        -Expected 2 `
+        -Actual $highSecurityForwardCount `
+        -Message "Template validation should make smoke and matrix rendered security high findings fail."
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected '-RenderedPath $tempOutput' `
+        -Message "Template validation should validate the smoke-rendered bundle."
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected '-ValuesFile $publicValuesFile' `
+        -Message "Template validation should keep rendered checks on public values."
 }
 
 Invoke-Test -Name "Cluster secret plan shares Helm config with preflight data" -Body {

@@ -38,6 +38,7 @@ After editing a generated values file, pass it explicitly:
 | Command | Use it for | Repository writes |
 | --- | --- | --- |
 | `.\scripts\validate-template.ps1` | Template structure, catalogs, one smoke render, rendered-asset validation, and the public-default render matrix | No tracked writes; temporary render output is removed |
+| `.\scripts\show-render-matrix.ps1 -Format markdown` | Inspect the public-default environment/profile matrix, values files, and representative selections before running renders | No tracked writes |
 | `.\scripts\validate-render-matrix.ps1` | Public-default coverage for every bundled environment preset and profile | No tracked writes; each render uses temporary output |
 | `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown` | Workstation readiness, selected bundle characteristics, blocked checks, and recommended validation commands | No tracked writes |
 | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Full repository workflow for the `dev` preset, including template, workstation, and rendered bundle checks | No tracked writes |
@@ -159,6 +160,7 @@ phase transition.
 - Profiles may opt into Jenkins rendering for validation with `ValidationIncludeJenkins`, but bundled public profiles leave it disabled by default.
 - An explicit `-ValuesFile` passed to `validate-render-matrix.ps1` applies to every environment and profile entry, which is useful when checking a generated values file before delivery.
 - The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
+- `scripts/show-render-matrix.ps1 -Format markdown` reports the same matrix without rendering bundles. Use it to review preset/profile coverage, values-file resolution, and automation-friendly JSON output before running the heavier validator.
 - `invoke-repository-validation.ps1 -ValuesFile <path>` validates the selected repository workflow with that file, but its nested `validate-template.ps1` step still runs the public-default smoke render and public-default matrix.
 
 The bundled preset coverage runs in environment-file name order:
@@ -226,7 +228,7 @@ installed, the rendered schema-validation requirement is satisfied.
 
 ## Kubernetes Security Baseline
 
-`validate-template.ps1` runs `scripts/validate-kubernetes-security-baseline.ps1 -FailOnHighFinding` against the source tree so high-severity Kubernetes defaults cannot enter the public template unnoticed. `validate-platform-assets.ps1` also runs the same baseline against the rendered bundle. The baseline is a review gate, not a replacement for cluster admission policy.
+`validate-template.ps1` runs `scripts/validate-kubernetes-security-baseline.ps1 -FailOnHighFinding` against the source tree so high-severity Kubernetes defaults cannot enter the public template unnoticed. It also makes the smoke rendered-bundle check and the full render matrix pass `-FailOnHighSecurityBaselineFinding` into `validate-platform-assets.ps1`, so high-severity rendered findings fail the template gate. The baseline is a review gate, not a replacement for cluster admission policy.
 
 It reports:
 
@@ -234,7 +236,7 @@ It reports:
 - medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 
-By default the baseline script reports findings without failing the run. The template gate opts into `-FailOnHighFinding` for the source tree. Use `-FailOnHighSecurityBaselineFinding` with `validate-render-matrix.ps1` or `validate-platform-assets.ps1` when high-severity rendered-bundle findings should block the validation command.
+By default the baseline script reports findings without failing the run. The template gate opts into `-FailOnHighFinding` for the source tree and `-FailOnHighSecurityBaselineFinding` for its rendered smoke and matrix checks. Use `-FailOnHighSecurityBaselineFinding` with direct `validate-render-matrix.ps1` or `validate-platform-assets.ps1` runs when high-severity rendered-bundle findings should block those commands outside the template gate.
 
 For direct baseline debugging, `validate-kubernetes-security-baseline.ps1` also
 supports `-FailOnHighFinding` and `-FailOnMediumFinding`. Use the medium-finding

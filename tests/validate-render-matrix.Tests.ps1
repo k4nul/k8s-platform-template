@@ -256,6 +256,7 @@ function New-TestRenderMatrixRepo {
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\render-matrix-catalog.ps1")
 $platformAssetsValidation = Join-Path $repoRoot "scripts\validate-platform-assets.ps1"
+$renderMatrixShow = Join-Path $repoRoot "scripts\show-render-matrix.ps1"
 $renderMatrixValidation = Join-Path $repoRoot "scripts\validate-render-matrix.ps1"
 $repositoryValidation = Join-Path $repoRoot "scripts\invoke-repository-validation.ps1"
 
@@ -665,6 +666,60 @@ Invoke-Test -Name "Combined render validation matrix is ordered and overrideable
     $overrideEntries = @(Get-RenderValidationMatrix -Root $repoRoot -DefaultValuesFile $defaultValuesFile -ValuesFile "custom.env")
     foreach ($entry in $overrideEntries) {
         Assert-Equal -Expected "custom.env" -Actual $entry.ValuesFile -Message ("{0} should use the explicit values file override." -f $entry.Name)
+    }
+}
+
+Invoke-Test -Name "Render matrix report lists environment and profile entries as JSON" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestRenderMatrixRepo -Root $testRoot
+
+        $json = (& $renderMatrixShow -RepoRoot $testRoot -Format json | Out-String)
+        $document = $json | ConvertFrom-Json
+        $entries = @($document.Entries)
+        $environmentEntry = @($entries | Where-Object { $_.Scope -eq "environment" })[0]
+        $profileEntry = @($entries | Where-Object { $_.Scope -eq "profile" })[0]
+        $expectedValuesFile = Resolve-RenderMatrixRepoPath -Root $testRoot -Path "config\platform-values.env.example"
+
+        Assert-Equal -Expected 2 -Actual $document.EntryCount -Message "The report should include one environment and one profile entry for the test repository."
+        Assert-Equal -Expected 1 -Actual $document.EnvironmentEntryCount -Message "The report should count environment entries."
+        Assert-Equal -Expected 1 -Actual $document.ProfileEntryCount -Message "The report should count profile entries."
+        Assert-Equal -Expected "dev" -Actual $environmentEntry.Name -Message "Environment entry names should be preserved."
+        Assert-Equal -Expected "minimal-application" -Actual $profileEntry.Name -Message "Profile entry names should be preserved."
+        Assert-Equal -Expected $expectedValuesFile -Actual $environmentEntry.ValuesFileResolved -Message "The report should include resolved values paths."
+        Assert-True -Condition $environmentEntry.ValuesFileExists -Message "Existing values files should be marked present."
+        Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($environmentEntry.Applications) -Message "Environment applications should be reported."
+        Assert-SequenceEqual -Expected @("nginx-web") -Actual @($profileEntry.Applications) -Message "Profile applications should be reported."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Render matrix report writes markdown coverage table" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-test-" + [Guid]::NewGuid().ToString("N"))
+    $outputPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-" + [Guid]::NewGuid().ToString("N") + ".md")
+
+    try {
+        New-TestRenderMatrixRepo -Root $testRoot
+
+        & $renderMatrixShow -RepoRoot $testRoot -Format markdown -OutputPath $outputPath
+        $content = Get-Content -Path $outputPath -Raw
+
+        Assert-Contains -Content $content -Expected "# Render Validation Matrix" -Message "Markdown output should include a title."
+        Assert-Contains -Content $content -Expected "| environment | dev | web-platform |" -Message "Markdown output should include the environment matrix row."
+        Assert-Contains -Content $content -Expected "| profile | minimal-application | minimal-application |" -Message "Markdown output should include the profile matrix row."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $outputPath) {
+            Remove-Item -LiteralPath $outputPath -Force
+        }
     }
 }
 

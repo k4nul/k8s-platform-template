@@ -149,6 +149,7 @@ $expectedPaths = @(
     "scripts\show-service-build-plan.ps1",
     "scripts\validate-rendered-bundle.ps1",
     "scripts\render-matrix-catalog.ps1",
+    "scripts\show-render-matrix.ps1",
     "scripts\repository-workflow-helpers.ps1",
     "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1",
@@ -273,12 +274,14 @@ try {
         -Profile web-platform `
         -Applications nginx-web,httpbin,whoami `
         -DataServices redis `
-        -SchemaValidator $SchemaValidator
+        -SchemaValidator $SchemaValidator `
+        -FailOnHighSecurityBaselineFinding
 
     & $renderMatrixValidation `
         -RepoRoot $root `
         -ValuesFile $publicValuesFile `
-        -SchemaValidator $SchemaValidator
+        -SchemaValidator $SchemaValidator `
+        -FailOnHighSecurityBaselineFinding
 }
 finally {
     if (Test-Path -LiteralPath $tempOutput) {

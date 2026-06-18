@@ -41,6 +41,7 @@ When you add a profile, add its public validation selections in the same change
 and run:
 
 ```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
 .\scripts\validate-render-matrix.ps1
 ```
 

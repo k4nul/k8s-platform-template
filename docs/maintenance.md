@@ -47,7 +47,8 @@ When the gate passes, it proves the current maintenance baseline:
 - rendered manifest schema validation is wired through `kubeconform` first,
   then `kubectl apply --dry-run=client --validate=true`
 - Kubernetes security baseline checks cover workload hardening, RBAC,
-  NetworkPolicy review items, and concrete sensitive Secret values
+  NetworkPolicy review items, and concrete sensitive Secret values, with
+  high-severity source and rendered findings failing the template gate
 - every bundled environment preset and every public profile shape is covered by
   the render matrix
 
@@ -79,6 +80,7 @@ these checks in order:
 | Evidence | Command | Interpret it as |
 | --- | --- | --- |
 | Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for `template-maintenance`. |
+| Matrix coverage report | `.\scripts\show-render-matrix.ps1 -Format markdown` | Lists the environment and profile entries, values-file resolution, and representative public selections without rendering bundles. |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown` | Shows whether the current machine has the tools needed for the selected validation workflow. |
 | Strict workstation check | `.\scripts\validate-workstation.ps1 -Strict` | Identifies missing required tools for the broader repository workflow. |
 | Broader repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Validates the `dev` preset through template, workstation, and rendered bundle checks. |
@@ -163,6 +165,7 @@ When adding or changing a profile, update the profile `.psd1` owner metadata and
 public validation selections in the same change. Then run:
 
 ```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
 .\scripts\validate-render-matrix.ps1
 .\scripts\validate-template.ps1
 ```
@@ -173,6 +176,7 @@ not depend on private hostnames, storage paths, or secret placeholders. Then run
 the matrix directly before the full maintenance gate:
 
 ```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
 .\scripts\validate-render-matrix.ps1
 .\scripts\validate-template.ps1
 ```

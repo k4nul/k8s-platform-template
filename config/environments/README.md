@@ -69,4 +69,10 @@ Run the full render matrix directly with:
 That command validates environment preset entries first, then every profile entry
 under `config/profiles/`.
 
+Inspect the same matrix without rendering bundles with:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+```
+
 For the full validation flow and the difference between template validation, repository validation, and delivery validation, see [../../docs/testing.md](../../docs/testing.md).
