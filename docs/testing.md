@@ -47,6 +47,57 @@ After editing a generated values file, pass it explicitly:
 
 Use `validate-template.ps1` as the lightweight repository gate before changing shared manifests, catalogs, profiles, or documentation that describes validation behavior. Use `invoke-repository-validation.ps1` before delivery or promotion.
 
+## Profile And Environment Evidence Workflow
+
+Use this workflow when the change touches `config/profiles/`,
+`config/environments/`, public values defaults, or documentation that explains
+the render-validation matrix:
+
+1. Inspect the matrix without rendering bundles:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+```
+
+Confirm that every environment preset and every profile appears in the report,
+that each values file exists, and that the representative applications and data
+services match the intended public coverage.
+
+2. Render and validate the complete public-default matrix:
+
+```powershell
+.\scripts\validate-render-matrix.ps1
+```
+
+This command runs environment entries first, then profile entries. It uses each
+preset's `ValidationValuesFile` when available and otherwise falls back through
+`ValuesFile` to `config/platform-values.env.example`.
+
+3. Validate the full template gate:
+
+```powershell
+.\scripts\validate-template.ps1
+```
+
+The template gate repeats the public-default matrix after its repository
+structure checks, script tests, public smoke render, rendered-asset validation,
+and Kubernetes security baseline checks.
+
+4. For a generated site-specific values file, run an explicit override:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -ValuesFile config\platform-values.dev.env -Format markdown
+.\scripts\validate-render-matrix.ps1 -ValuesFile config\platform-values.dev.env
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
+The `-ValuesFile` override applies to every matrix entry. Use the `show-*`
+command to inspect the override and the validation command to test one edited
+values file broadly; do not replace the public-default gate with this check when
+maintaining the reusable template.
+
 ## Validation Layers
 
 Use these layers in order when you are bringing up a workstation or reviewing a template change:
@@ -162,6 +213,9 @@ phase transition.
 - The combined matrix is built by `scripts/render-matrix-catalog.ps1` and is covered by tests so the validator and test suite use the same environment/profile ordering.
 - `scripts/show-render-matrix.ps1 -Format markdown` reports the same matrix without rendering bundles. Use it to review preset/profile coverage, values-file resolution, and automation-friendly JSON output before running the heavier validator.
 - `invoke-repository-validation.ps1 -ValuesFile <path>` validates the selected repository workflow with that file, but its nested `validate-template.ps1` step still runs the public-default smoke render and public-default matrix.
+- The matrix report is evidence, not proof by itself. Pair
+  `show-render-matrix.ps1 -Format markdown` with `validate-render-matrix.ps1`
+  or `validate-template.ps1` when a review needs render-validation evidence.
 
 The bundled preset coverage runs in environment-file name order:
 

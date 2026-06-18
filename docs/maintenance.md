@@ -81,6 +81,7 @@ these checks in order:
 | --- | --- | --- |
 | Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for `template-maintenance`. |
 | Matrix coverage report | `.\scripts\show-render-matrix.ps1 -Format markdown` | Lists the environment and profile entries, values-file resolution, and representative public selections without rendering bundles. |
+| Matrix validation | `.\scripts\validate-render-matrix.ps1` | Renders and validates every public environment and profile matrix entry using temporary output. |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown` | Shows whether the current machine has the tools needed for the selected validation workflow. |
 | Strict workstation check | `.\scripts\validate-workstation.ps1 -Strict` | Identifies missing required tools for the broader repository workflow. |
 | Broader repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Validates the `dev` preset through template, workstation, and rendered bundle checks. |
@@ -103,6 +104,36 @@ Use this decision path when triaging the dashboard status:
 For automation reports, record the first failing command, whether the template
 gate passed, and whether the readiness report lists a missing grouped
 requirement such as `kubeconform or kubectl`.
+
+## Render Matrix Evidence Package
+
+When the progress dashboard or a reviewer needs evidence for the profile and
+environment render-validation gate, collect these commands as one package:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+.\scripts\validate-template.ps1
+```
+
+Use the first command to show the intended matrix entries, values-file
+resolution, and representative application and data-service selections. Use the
+second command to prove those entries render and validate in temporary output.
+Use the template gate as the final maintenance signal because it also runs the
+smoke render, schema-validator wiring checks, Kubernetes security baseline, and
+the lightweight PowerShell tests.
+
+For a generated values file, keep the public-default package above and add an
+explicit override check:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -ValuesFile config\platform-values.dev.env -Format markdown
+.\scripts\validate-render-matrix.ps1 -ValuesFile config\platform-values.dev.env
+```
+
+That override intentionally applies the edited values file to every matrix
+entry. Treat failures in this override as site-specific values work unless the
+public-default package also fails.
 
 ## Phase Transition Readiness
 

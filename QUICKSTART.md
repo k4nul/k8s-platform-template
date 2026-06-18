@@ -81,13 +81,14 @@ This step answers two questions before rendering:
 ```powershell
 .\scripts\validate-template.ps1
 .\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
 .\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
 ```
 
 Use `validate-template.ps1` for template-level sanity checks.
 
-Use `show-render-matrix.ps1` to inspect the public-default environment and profile coverage without rendering every bundle.
+Use `show-render-matrix.ps1` to inspect the public-default environment and profile coverage without rendering every bundle. Use `validate-render-matrix.ps1` when you changed a profile, environment preset, public values default, or manifest source and need every bundled matrix entry to render and validate.
 
 Use `show-validation-readiness.ps1` to see which rendered-bundle checks are available on the current workstation.
 
@@ -99,6 +100,12 @@ After editing `config/platform-values.dev.env`, validate the edited file explici
 .\scripts\invoke-repository-validation.ps1 `
   -EnvironmentPreset dev `
   -ValuesFile config\platform-values.dev.env
+```
+
+To prove that the edited values file is compatible with every public matrix entry before delivery, run:
+
+```powershell
+.\scripts\validate-render-matrix.ps1 -ValuesFile config\platform-values.dev.env
 ```
 
 See [docs/testing.md](docs/testing.md) for the public-default render matrix, schema validation fallback, CRD-backed resource behavior, and Kubernetes security baseline checks. See [docs/troubleshooting.md](docs/troubleshooting.md) when validation is blocked by workstation tools or generated-bundle readiness.

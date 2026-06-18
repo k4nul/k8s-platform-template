@@ -87,11 +87,13 @@ If this is your first visit, follow this order:
 
 See [docs/testing.md](docs/testing.md) for the profile and environment render matrix, schema validator behavior, and security baseline checks behind this command.
 If validation fails because local tools are missing, use [docs/troubleshooting.md](docs/troubleshooting.md) to separate template issues from workstation readiness issues.
-Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Preset-based repository validation uses the preset `ValidationValuesFile` when no explicit values file is passed. After editing a generated values file, validate that file explicitly:
+Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Inspect the same public matrix before changing profiles or presets:
 
 ```powershell
 .\scripts\show-render-matrix.ps1 -Format markdown
 ```
+
+The report lists every environment preset and bundled profile, the values file used by each entry, and the representative applications and data services that will be rendered by the matrix validator. Preset-based repository validation uses the preset `ValidationValuesFile` when no explicit values file is passed. After editing a generated values file, validate that file explicitly:
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 `
@@ -135,6 +137,22 @@ The first validation command checks the preset through its public
 `ValidationValuesFile`. Use the second form after editing
 `config/platform-values.dev.env` so site-specific values are validated before
 delivery.
+For a profile or environment preset change, add an explicit matrix check before
+delivery:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+```
+
+Use `-ValuesFile config\platform-values.dev.env` with `validate-render-matrix.ps1`
+only when you intentionally want every matrix entry to render with that edited
+values file. Use the same override with `show-render-matrix.ps1` first when you
+only need to inspect the edited values-file resolution:
+
+```powershell
+.\scripts\show-render-matrix.ps1 -ValuesFile config\platform-values.dev.env -Format markdown
+```
 
 The rendered bundle will include `k8s/`, `services/`, planning documents, and readiness documents under `out/`.
 
