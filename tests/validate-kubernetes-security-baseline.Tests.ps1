@@ -357,13 +357,14 @@ Invoke-Test -Name "Security baseline skips cataloged optional manual manifests b
             -Root $testRoot `
             -Manifests @{
                 "311_platform_kubernetes-dashboard/sample-admin-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRoleBinding`nmetadata:`n  name: optional-admin-binding`nsubjects:`n  - kind: ServiceAccount`n    name: optional-admin`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: cluster-admin`n"
+                "311_platform_kubernetes-dashboard/sample-viewer-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: RoleBinding`nmetadata:`n  name: optional-viewer-binding`n  namespace: kubernetes-dashboard`nsubjects:`n  - kind: ServiceAccount`n    name: optional-viewer`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: view`n"
             }
 
         $output = (& $securityBaselineScript -Path $testRoot -FailOnHighFinding 6>&1 3>&1 2>&1 | Out-String)
 
         Assert-Contains `
             -Content $output `
-            -Expected "skipped optional manifests: 1" `
+            -Expected "skipped optional manifests: 2" `
             -Message "Cataloged optional manifests should be skipped by default."
         Assert-NotContains `
             -Content $output `
@@ -387,6 +388,7 @@ Invoke-Test -Name "Security baseline can include cataloged optional manual manif
             -Root $testRoot `
             -Manifests @{
                 "311_platform_kubernetes-dashboard/sample-admin-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRoleBinding`nmetadata:`n  name: optional-admin-binding`nsubjects:`n  - kind: ServiceAccount`n    name: optional-admin`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: cluster-admin`n"
+                "311_platform_kubernetes-dashboard/sample-viewer-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: RoleBinding`nmetadata:`n  name: optional-viewer-binding`n  namespace: kubernetes-dashboard`nsubjects:`n  - kind: ServiceAccount`n    name: optional-viewer`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: view`n"
             }
 
         $failed = $false
@@ -402,6 +404,25 @@ Invoke-Test -Name "Security baseline can include cataloged optional manual manif
         }
 
         Assert-True -Condition $failed -Message "IncludeOptionalManifests should scan cataloged optional manifests."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Security baseline can include namespace-scoped optional manual manifests without high findings" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "311_platform_kubernetes-dashboard/sample-viewer-user.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: RoleBinding`nmetadata:`n  name: optional-viewer-binding`n  namespace: kubernetes-dashboard`nsubjects:`n  - kind: ServiceAccount`n    name: optional-viewer`n    namespace: kubernetes-dashboard`nroleRef:`n  apiGroup: rbac.authorization.k8s.io`n  kind: ClusterRole`n  name: view`n"
+            }
+
+        & $securityBaselineScript -Path $testRoot -IncludeOptionalManifests -FailOnHighFinding 3>&1 2>&1 | Out-String | Out-Null
     }
     finally {
         if (Test-Path -LiteralPath $testRoot) {

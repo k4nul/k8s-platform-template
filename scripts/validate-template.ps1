@@ -82,6 +82,38 @@ function Assert-TemplateMaintenanceScopeSelected {
     }
 }
 
+function Assert-PublicDefaultSecurityReviewPosture {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    $networkPolicy = Join-Path $Root "k8s\100_namespace\platform-network-policy.yaml"
+    $namespaceReadme = Join-Path $Root "k8s\100_namespace\README.md"
+    $dashboardReadme = Join-Path $Root "k8s\311_platform_kubernetes-dashboard\README.md"
+    $platformCatalog = Join-Path $Root "scripts\platform-catalog.ps1"
+    $dashboardAdminSample = Join-Path $Root "k8s\311_platform_kubernetes-dashboard\sample-admin-user.yaml"
+    $dashboardViewerSample = Join-Path $Root "k8s\311_platform_kubernetes-dashboard\sample-viewer-user.yaml"
+
+    Assert-FileContains -Path $networkPolicy -Pattern '(?m)^kind:\s*NetworkPolicy\s*$' -Label "Public-default NetworkPolicy manifest"
+    Assert-FileContains -Path $networkPolicy -Pattern 'platform-public-ingress-baseline' -Label "Public-default NetworkPolicy manifest"
+    Assert-FileContains -Path $networkPolicy -Pattern '(?m)^\s*podSelector:\s*\{\}\s*$' -Label "Public-default NetworkPolicy manifest"
+    Assert-FileContains -Path $networkPolicy -Pattern '(?m)^\s*-\s*\{\}\s*$' -Label "Public-default NetworkPolicy manifest"
+    Assert-FileContains -Path $namespaceReadme -Pattern 'intentionally permissive' -Label "Public-default NetworkPolicy documentation"
+    Assert-FileContains -Path $namespaceReadme -Pattern 'environment-specific allow lists' -Label "Public-default NetworkPolicy documentation"
+
+    Assert-FileContains -Path $platformCatalog -Pattern ([regex]::Escape("sample-admin-user.yaml")) -Label "Optional dashboard admin sample exclusion"
+    Assert-FileContains -Path $platformCatalog -Pattern ([regex]::Escape("sample-viewer-user.yaml")) -Label "Optional dashboard viewer sample exclusion"
+    Assert-FileContains -Path $dashboardAdminSample -Pattern '(?m)^kind:\s*ClusterRoleBinding\s*$' -Label "Dashboard manual admin RBAC sample"
+    Assert-FileContains -Path $dashboardAdminSample -Pattern '(?m)^\s*name:\s*cluster-admin\s*$' -Label "Dashboard manual admin RBAC sample"
+    Assert-FileContains -Path $dashboardViewerSample -Pattern '(?m)^kind:\s*RoleBinding\s*$' -Label "Dashboard manual viewer RBAC sample"
+    Assert-FileContains -Path $dashboardViewerSample -Pattern '(?m)^\s*name:\s*view\s*$' -Label "Dashboard manual viewer RBAC sample"
+    Assert-FileContains -Path $dashboardReadme -Pattern '(?s)not copied into\s+generated bundles by default' -Label "Dashboard manual RBAC documentation"
+    Assert-FileContains -Path $dashboardReadme -Pattern 'cluster-admin' -Label "Dashboard manual RBAC documentation"
+    Assert-FileContains -Path $dashboardReadme -Pattern 'namespace-scoped' -Label "Dashboard manual RBAC documentation"
+    Assert-FileContains -Path $dashboardReadme -Pattern 'short-lived local evaluation' -Label "Dashboard manual RBAC documentation"
+}
+
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
 }
@@ -109,6 +141,8 @@ $expectedPaths = @(
     "k8s\400_platform_httpbin\README.md",
     "k8s\400_platform_whoami\README.md",
     "k8s\401_platform_adminer\README.md",
+    "k8s\311_platform_kubernetes-dashboard\sample-admin-user.yaml",
+    "k8s\311_platform_kubernetes-dashboard\sample-viewer-user.yaml",
     "scripts\README.md",
     "scripts\platform-catalog.ps1",
     "scripts\validate-service-builds.ps1",
@@ -156,8 +190,8 @@ $phaseGatesManifest = Join-Path $root "docs\instructions\phase-gates.json"
 
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
-Assert-FileContains -Path (Join-Path $root "scripts\platform-catalog.ps1") -Pattern ([regex]::Escape("sample-admin-user.yaml")) -Label "Optional dashboard admin sample exclusion"
 Assert-TemplateMaintenanceScopeSelected -Path $phaseGatesManifest
+Assert-PublicDefaultSecurityReviewPosture -Root $root
 
 $coreRenderMatrixProfiles = @(
     "data-services",
