@@ -73,6 +73,7 @@ if (-not $PSBoundParameters.ContainsKey("RenderedPath") -or -not $RenderedPath) 
         -DockerRegistry $DockerRegistry `
         -Version $Version `
         -ValuesFile $ValuesFile `
+        -HelmConfigFile $HelmConfigFile `
         -Profile $Profile `
         -Applications $Applications `
         -DataServices $DataServices `

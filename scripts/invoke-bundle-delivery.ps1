@@ -84,7 +84,7 @@ $resolvedArchivePath = ""
 $Applications = @(Normalize-List -Values $Applications)
 $DataServices = @(Normalize-List -Values $DataServices)
 
-if ($PSBoundParameters.ContainsKey("HelmConfigFile") -and $HelmConfigFile) {
+if ($HelmConfigFile) {
     $resolvedHelmConfigFile = Resolve-RepoPath -Root $root -Path $HelmConfigFile
 }
 
@@ -140,6 +140,9 @@ if ($environmentPresetData) {
 }
 Write-Host ("- Output path: {0}" -f $resolvedOutputPath)
 Write-Host ("- Values file: {0}" -f $resolvedValuesFile)
+if ($resolvedHelmConfigFile) {
+    Write-Host ("- Helm config file: {0}" -f $resolvedHelmConfigFile)
+}
 Write-Host ("- Profile: {0}" -f $Profile)
 Write-Host ("- Applications: {0}" -f (Get-ListText -Values $Applications))
 Write-Host ("- Data services: {0}" -f (Get-ListText -Values $DataServices))
@@ -191,6 +194,10 @@ Invoke-RepositoryWorkflowStep -Title "Render deployment bundle" -Action {
         DataServices = @($DataServices)
         IncludeJenkins = $IncludeJenkins
         FailOnUnresolvedToken = $true
+    }
+
+    if ($resolvedHelmConfigFile) {
+        $renderParameters.HelmConfigFile = $resolvedHelmConfigFile
     }
 
     & $renderPlatformAssetsScript @renderParameters

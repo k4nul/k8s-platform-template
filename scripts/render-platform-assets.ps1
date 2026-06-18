@@ -8,6 +8,7 @@ param(
 
     [string]$Version,
     [string]$ValuesFile,
+    [string]$HelmConfigFile,
     [string]$Profile = "full",
     [string[]]$Applications = @(),
     [string[]]$DataServices = @(),
@@ -26,6 +27,10 @@ if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
 
 if (-not $PSBoundParameters.ContainsKey("ValuesFile") -or -not $ValuesFile) {
     $ValuesFile = Join-Path $PSScriptRoot "..\config\platform-values.env.example"
+}
+
+if (-not $PSBoundParameters.ContainsKey("HelmConfigFile") -or -not $HelmConfigFile) {
+    $HelmConfigFile = Join-Path $PSScriptRoot "..\config\helm-releases.psd1"
 }
 
 $root = (Resolve-Path -Path $RepoRoot).Path
@@ -116,6 +121,7 @@ if (-not $selection.IncludeAllServices) {
     -RepoRoot $root `
     -BundleRoot $renderedRoot `
     -ValuesFile $ValuesFile `
+    -HelmConfigFile $HelmConfigFile `
     -DockerRegistry $DockerRegistry `
     -Version $Version `
     -Profile $Profile `
@@ -134,12 +140,14 @@ if (-not $selection.IncludeAllServices) {
 
 & $profileCatalogScript `
     -RepoRoot $root `
+    -HelmConfigFile $HelmConfigFile `
     -Format markdown `
     -OutputPath (Join-Path $renderedRoot "PROFILE_CATALOG.md")
 
 & $clusterPreflightScript `
     -RepoRoot $root `
     -ValuesFile $ValuesFile `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
@@ -150,6 +158,7 @@ if (-not $selection.IncludeAllServices) {
 & $clusterSecretPlanScript `
     -RepoRoot $root `
     -ValuesFile $ValuesFile `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
@@ -160,6 +169,7 @@ if (-not $selection.IncludeAllServices) {
 & $validationReadinessScript `
     -RepoRoot $root `
     -ValuesFile $ValuesFile `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
@@ -169,6 +179,7 @@ if (-not $selection.IncludeAllServices) {
 
 & $planScript `
     -RepoRoot $root `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
@@ -178,6 +189,7 @@ if (-not $selection.IncludeAllServices) {
 
 & $planScript `
     -RepoRoot $root `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `

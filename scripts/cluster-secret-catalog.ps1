@@ -149,6 +149,7 @@ function Get-ClusterSecretPlanData {
     param(
         [string]$RepoRoot,
         [string]$ValuesFile,
+        [string]$HelmConfigFile,
         [string]$Profile = "full",
         [string[]]$Applications = @(),
         [string[]]$DataServices = @(),
@@ -164,13 +165,19 @@ function Get-ClusterSecretPlanData {
         $ValuesFile = Join-Path $PSScriptRoot "..\config\platform-values.env.example"
     }
 
+    if (-not $PSBoundParameters.ContainsKey("HelmConfigFile") -or -not $HelmConfigFile) {
+        $HelmConfigFile = Join-Path $PSScriptRoot "..\config\helm-releases.psd1"
+    }
+
     $root = (Resolve-Path -Path $RepoRoot).Path
     $resolvedValuesFile = (Resolve-Path -Path $ValuesFile).Path
+    $resolvedHelmConfigFile = (Resolve-Path -Path $HelmConfigFile).Path
     $preflightScript = Join-Path $PSScriptRoot "show-cluster-preflight.ps1"
 
     $preflightParameters = @{
         RepoRoot = $root
         ValuesFile = $resolvedValuesFile
+        HelmConfigFile = $resolvedHelmConfigFile
         Profile = $Profile
         Format = "json"
     }

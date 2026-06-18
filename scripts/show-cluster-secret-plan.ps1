@@ -1,6 +1,7 @@
 param(
     [string]$RepoRoot,
     [string]$ValuesFile,
+    [string]$HelmConfigFile,
     [string]$Profile = "full",
     [string[]]$Applications = @(),
     [string[]]$DataServices = @(),
@@ -38,9 +39,14 @@ if (-not $PSBoundParameters.ContainsKey("ValuesFile") -or -not $ValuesFile) {
     $ValuesFile = Join-Path $PSScriptRoot "..\config\platform-values.env.example"
 }
 
+if (-not $PSBoundParameters.ContainsKey("HelmConfigFile") -or -not $HelmConfigFile) {
+    $HelmConfigFile = Join-Path $PSScriptRoot "..\config\helm-releases.psd1"
+}
+
 $planData = Get-ClusterSecretPlanData `
     -RepoRoot $RepoRoot `
     -ValuesFile $ValuesFile `
+    -HelmConfigFile $HelmConfigFile `
     -Profile $Profile `
     -Applications $Applications `
     -DataServices $DataServices `
