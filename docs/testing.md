@@ -286,7 +286,7 @@ installed, the rendered schema-validation requirement is satisfied.
 
 It reports:
 
-- high-severity defaults such as privileged containers, host namespace access, `hostPath` volumes, and `cluster-admin` bindings
+- high-severity defaults such as privileged containers, host namespace access, `hostPath` volumes, `cluster-admin` bindings, and wildcard RBAC resources or verbs
 - medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 

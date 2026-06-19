@@ -261,6 +261,193 @@ function Test-PlaceholderSecretValue {
     return $false
 }
 
+function Get-YamlDocuments {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Content
+    )
+
+    $documents = New-Object System.Collections.Generic.List[object]
+    $lines = [regex]::Split($Content, "\r?\n")
+    $documentLines = New-Object System.Collections.Generic.List[string]
+    $startLine = 1
+
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if ($line -match '^\s*---\s*(?:#.*)?$') {
+            if (@($documentLines.ToArray() | Where-Object { $_.Trim() }).Count -gt 0) {
+                $documents.Add([PSCustomObject]@{
+                    StartLine = $startLine
+                    Lines = @($documentLines.ToArray())
+                    Content = ($documentLines.ToArray() -join "`n")
+                }) | Out-Null
+            }
+
+            $documentLines.Clear()
+            $startLine = $index + 2
+            continue
+        }
+
+        $documentLines.Add($line) | Out-Null
+    }
+
+    if (@($documentLines.ToArray() | Where-Object { $_.Trim() }).Count -gt 0) {
+        $documents.Add([PSCustomObject]@{
+            StartLine = $startLine
+            Lines = @($documentLines.ToArray())
+            Content = ($documentLines.ToArray() -join "`n")
+        }) | Out-Null
+    }
+
+    return $documents.ToArray()
+}
+
+function Test-YamlWildcardScalar {
+    param(
+        [AllowNull()]
+        [string]$Value
+    )
+
+    if ($null -eq $Value) {
+        return $false
+    }
+
+    $normalizedValue = ($Value -replace '\s+#.*$', '').Trim()
+    if (-not $normalizedValue) {
+        return $false
+    }
+
+    if ($normalizedValue -match '^\[(.*)\]$') {
+        foreach ($item in @($Matches[1] -split ",")) {
+            if ((Remove-YamlScalarQuotes -Value $item) -eq "*") {
+                return $true
+            }
+        }
+
+        return $false
+    }
+
+    return ((Remove-YamlScalarQuotes -Value $normalizedValue) -eq "*")
+}
+
+function Get-FirstYamlSectionWildcardLineNumber {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string[]]$Lines,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartLine,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SectionName
+    )
+
+    $sectionPattern = '^\s*(?:-\s*)?' + [regex]::Escape($SectionName) + ':\s*(.*)$'
+    $sectionIndent = -1
+
+    for ($index = 0; $index -lt $Lines.Count; $index++) {
+        $line = $Lines[$index]
+        if ($line -match $sectionPattern) {
+            if (Test-YamlWildcardScalar -Value $Matches[1]) {
+                return ($StartLine + $index)
+            }
+
+            $sectionIndent = Get-IndentLength -Line $line
+            continue
+        }
+
+        if ($sectionIndent -lt 0) {
+            continue
+        }
+
+        if (-not $line.Trim()) {
+            continue
+        }
+
+        $indent = Get-IndentLength -Line $line
+        if ($indent -lt $sectionIndent) {
+            $sectionIndent = -1
+            continue
+        }
+
+        if ($line -match '^\s*-\s*(.+)$' -and (Test-YamlWildcardScalar -Value $Matches[1])) {
+            return ($StartLine + $index)
+        }
+
+        if ($indent -eq $sectionIndent) {
+            $sectionIndent = -1
+            continue
+        }
+    }
+
+    return 0
+}
+
+function Add-RbacWildcardFindings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Findings,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Content,
+
+        [Parameter(Mandatory = $true)]
+        [string]$File
+    )
+
+    $checks = @(
+        @{
+            Section = "verbs"
+            Severity = "high"
+            Id = "wildcard-rbac-verbs"
+            Message = "A Role or ClusterRole rule grants wildcard verbs."
+            Remediation = "Replace wildcard verbs with the minimum required operations such as get, list, watch, create, update, patch, or delete."
+        },
+        @{
+            Section = "resources"
+            Severity = "high"
+            Id = "wildcard-rbac-resources"
+            Message = "A Role or ClusterRole rule grants access to wildcard resources."
+            Remediation = "Replace wildcard resources with the narrow resource names required by the component."
+        },
+        @{
+            Section = "apiGroups"
+            Severity = "medium"
+            Id = "wildcard-rbac-api-groups"
+            Message = "A Role or ClusterRole rule applies to wildcard API groups."
+            Remediation = "List the specific API groups required by the component instead of using a wildcard."
+        }
+    )
+
+    foreach ($document in @(Get-YamlDocuments -Content $Content)) {
+        if ([string]$document.Content -notmatch '(?m)^kind:\s*(ClusterRole|Role)\s*$') {
+            continue
+        }
+
+        foreach ($check in $checks) {
+            $line = Get-FirstYamlSectionWildcardLineNumber `
+                -Lines @($document.Lines) `
+                -StartLine ([int]$document.StartLine) `
+                -SectionName ([string]$check.Section)
+
+            if ($line -le 0) {
+                continue
+            }
+
+            Add-Finding `
+                -Findings $Findings `
+                -Severity ([string]$check.Severity) `
+                -Id ([string]$check.Id) `
+                -File $File `
+                -Line $line `
+                -Message ([string]$check.Message) `
+                -Remediation ([string]$check.Remediation)
+        }
+    }
+}
+
 if (-not $PSBoundParameters.ContainsKey("Path") -or -not $Path) {
     $Path = Join-Path $PSScriptRoot ".."
 }
@@ -437,6 +624,11 @@ foreach ($file in $yamlFiles) {
             -Message "A ClusterRoleBinding grants cluster-admin." `
             -Remediation "Keep sample admin bindings out of default bundles and require explicit operator review before use."
     }
+
+    Add-RbacWildcardFindings `
+        -Findings $findings `
+        -Content $content `
+        -File $relativePath
 
     $isWorkload = $content -match '(?m)^kind:\s*(Deployment|StatefulSet|DaemonSet)\s*$'
     if (-not $isWorkload) {

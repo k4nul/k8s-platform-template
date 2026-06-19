@@ -213,7 +213,8 @@ $securityBaselineTerms = @(
     "resources",
     "readinessProbe",
     "livenessProbe",
-    "NetworkPolicy"
+    "NetworkPolicy",
+    "wildcard-rbac"
 )
 
 foreach ($term in $securityBaselineTerms) {

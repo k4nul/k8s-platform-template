@@ -349,6 +349,43 @@ Invoke-Test -Name "Security baseline fail-on-high blocks cluster-admin bindings"
     }
 }
 
+Invoke-Test -Name "Security baseline fail-on-high blocks wildcard RBAC grants" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "wildcard-role.yaml" = "apiVersion: rbac.authorization.k8s.io/v1`nkind: ClusterRole`nmetadata:`n  name: overly-broad-role`nrules:`n- apiGroups: ['*']`n  resources:`n  - '*'`n  verbs:`n  - '*'`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot 3>&1 2>&1 | Out-String)
+
+        Assert-Contains -Content $output -Expected "wildcard-rbac-api-groups" -Message "Wildcard RBAC API groups should be reported."
+        Assert-Contains -Content $output -Expected "wildcard-rbac-resources" -Message "Wildcard RBAC resources should be reported."
+        Assert-Contains -Content $output -Expected "wildcard-rbac-verbs" -Message "Wildcard RBAC verbs should be reported."
+
+        $failed = $false
+        try {
+            & $securityBaselineScript -Path $testRoot -FailOnHighFinding 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "high-severity" `
+                -Message "FailOnHighFinding should block high-severity wildcard RBAC findings."
+            $failed = $true
+        }
+
+        Assert-True -Condition $failed -Message "FailOnHighFinding should fail when wildcard RBAC resources or verbs are present."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Security baseline skips cataloged optional manual manifests by default" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
 
