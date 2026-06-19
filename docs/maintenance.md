@@ -108,6 +108,25 @@ For automation reports, record the first failing command, whether the template
 gate passed, and whether the readiness report lists a missing grouped
 requirement such as `kubeconform or kubectl`.
 
+When the template maintenance gate passes and the phase controller reports the
+transition as eligible, the remaining dashboard work is no longer another
+manifest or documentation repair. Treat that state as a phase handoff:
+
+- keep the validation output from the passing
+  `scripts/validate-template.ps1` run as the evidence package
+- confirm `docs/instructions/phase-gates.json` still lists
+  `public-default-security-review` as `current_phase` and
+  `template-maintenance` as `next_phase`
+- run the next automated task as `phase-transition`, not another broad
+  implementation or docs task
+- limit the transition patch to the files listed in
+  `transition.phase_update_files`
+
+For this phase, a passing transition validation command means the public-default
+NetworkPolicy posture, Dashboard manual RBAC posture, rendered schema-validator
+wiring, and source/rendered security baseline are ready for the metadata-only
+move back to `template-maintenance`.
+
 ## Render Matrix Evidence Package
 
 When the progress dashboard or a reviewer needs evidence for the profile and

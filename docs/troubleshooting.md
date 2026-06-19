@@ -58,8 +58,9 @@ env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-templat
 ```
 
 If automation or a progress dashboard still reports `kubernetes validation
-failed`, rerun that exact command from the repository root and compare it with
-the broader repository command:
+failed`, including the phase status
+`public-default-security-review->template-maintenance`, rerun that exact command
+from the repository root and compare it with the broader repository command:
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
@@ -75,6 +76,14 @@ environment and profile matrix entry would be rendered, then use
 `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown`
 to separate missing local tools from template render failures before changing
 manifests.
+
+If the exact phase-gate command passes and the phase controller marks the
+transition eligible, stop triaging Kubernetes validation. The correct follow-up
+is a `phase-transition` run that updates only the phase files named in
+`docs/instructions/phase-gates.json`. Do not change manifests, values files, or
+rendered bundles only to clear a stale dashboard status after this gate is
+green.
+
 In JSON mode, the readiness report includes `MissingRequiredToolRequirements`,
 `SchemaValidatorRequirement`, and `HelmRequirement`. Use those grouped fields
 when automation needs to distinguish the alternative schema-validator
