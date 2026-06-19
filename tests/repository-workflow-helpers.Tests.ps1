@@ -102,6 +102,104 @@ function Invoke-WithEmptyToolPath {
     }
 }
 
+function New-TestTextFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RelativePath,
+
+        [string[]]$Lines
+    )
+
+    $targetPath = Join-Path $Root $RelativePath
+    $targetDirectory = Split-Path -Path $targetPath -Parent
+    if ($targetDirectory) {
+        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+    }
+
+    Set-Content -Path $targetPath -Value $Lines
+}
+
+function New-TestRepositoryValidationRepo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "config\platform-values.env.example" `
+        -Lines @("PLATFORM_DOMAIN=public.example.com")
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "config\platform-values.private.env" `
+        -Lines @("PLATFORM_DOMAIN=private.example.com")
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "config\platform-values.explicit.env" `
+        -Lines @("PLATFORM_DOMAIN=explicit.example.com")
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "config\environments\dev.psd1" `
+        -Lines @(
+            "@{",
+            "    ValuesFile = 'config\platform-values.private.env'",
+            "    ValidationValuesFile = 'config\platform-values.env.example'",
+            "    Version = '2.4.6-dev'",
+            "    Profile = 'web-platform'",
+            "    Applications = @('nginx-web,httpbin', ' whoami ')",
+            "    DataServices = @('postgresql, redis')",
+            "    IncludeJenkins = `$true",
+            "    PrepareHelmRepos = `$true",
+            "    Strict = `$true",
+            "    ValidateCrdBackedResources = `$true",
+            "    RequireBootstrapSecretsReady = `$true",
+            "    SkipTemplateValidation = `$true",
+            "    SkipWorkstationValidation = `$true",
+            "}"
+        )
+    New-TestTextFile `
+        -Root $Root `
+        -RelativePath "scripts\validate-platform-assets.ps1" `
+        -Lines @(
+            "param(",
+            "    [string]`$RepoRoot,",
+            "    [string]`$ValuesFile,",
+            "    [string]`$DockerRegistry = '',",
+            "    [string]`$Version,",
+            "    [string]`$Profile,",
+            "    [string[]]`$Applications = @(),",
+            "    [string[]]`$DataServices = @(),",
+            "    [switch]`$IncludeJenkins,",
+            "    [switch]`$PrepareHelmRepos,",
+            "    [switch]`$Strict,",
+            "    [switch]`$ValidateCrdBackedResources,",
+            "    [ValidateSet('auto', 'kubeconform', 'kubectl')]",
+            "    [string]`$SchemaValidator = 'auto',",
+            "    [switch]`$RequireBootstrapSecretsReady",
+            ")",
+            "",
+            "`$record = [PSCustomObject]@{",
+            "    RepoRoot = `$RepoRoot",
+            "    ValuesFile = `$ValuesFile",
+            "    Version = `$Version",
+            "    Profile = `$Profile",
+            "    Applications = @(`$Applications)",
+            "    DataServices = @(`$DataServices)",
+            "    IncludeJenkins = [bool]`$IncludeJenkins",
+            "    PrepareHelmRepos = [bool]`$PrepareHelmRepos",
+            "    Strict = [bool]`$Strict",
+            "    ValidateCrdBackedResources = [bool]`$ValidateCrdBackedResources",
+            "    SchemaValidator = `$SchemaValidator",
+            "    RequireBootstrapSecretsReady = [bool]`$RequireBootstrapSecretsReady",
+            "}",
+            "",
+            "Add-Content -Path `$env:REPOSITORY_VALIDATION_ASSET_LOG -Value (`$record | ConvertTo-Json -Compress)"
+        )
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 . (Join-Path $repoRoot "scripts\repository-workflow-helpers.ps1")
 $repositoryValidation = Join-Path $repoRoot "scripts\invoke-repository-validation.ps1"
@@ -197,6 +295,103 @@ Invoke-Test -Name "Repository validation fails when strict workstation validatio
     }
 
     Assert-True -Condition $failed -Message "Repository validation should fail when required workstation tools are absent."
+}
+
+Invoke-Test -Name "Repository validation uses public preset values and normalized selections" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+
+    try {
+        New-TestRepositoryValidationRepo -Root $testRoot
+        $env:REPOSITORY_VALIDATION_ASSET_LOG = $logPath
+
+        & $repositoryValidation `
+            -RepoRoot $testRoot `
+            -EnvironmentPreset dev `
+            -SchemaValidator kubeconform 3>&1 2>&1 | Out-String | Out-Null
+
+        $records = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })
+        $record = $records[0]
+        $expectedValuesFile = Resolve-RepoPath -Root $testRoot -Path "config\platform-values.env.example"
+
+        Assert-Equal -Expected 1 -Actual $records.Count -Message "Repository validation should run one platform asset validation step."
+        Assert-Equal -Expected $testRoot -Actual $record.RepoRoot -Message "Repository validation should forward the selected repository root."
+        Assert-Equal -Expected $expectedValuesFile -Actual $record.ValuesFile -Message "ValidationValuesFile should take precedence over private preset ValuesFile."
+        Assert-Equal -Expected "2.4.6-dev" -Actual $record.Version -Message "Preset version should be forwarded."
+        Assert-Equal -Expected "web-platform" -Actual $record.Profile -Message "Preset profile should be forwarded."
+        Assert-SequenceEqual -Expected @("nginx-web", "httpbin", "whoami") -Actual @($record.Applications) -Message "Preset applications should be normalized before validation."
+        Assert-SequenceEqual -Expected @("postgresql", "redis") -Actual @($record.DataServices) -Message "Preset data services should be normalized before validation."
+        Assert-True -Condition $record.IncludeJenkins -Message "Preset IncludeJenkins should be forwarded."
+        Assert-True -Condition $record.PrepareHelmRepos -Message "Preset PrepareHelmRepos should be forwarded."
+        Assert-True -Condition $record.Strict -Message "Preset Strict should be forwarded."
+        Assert-True -Condition $record.ValidateCrdBackedResources -Message "Preset CRD validation should be forwarded."
+        Assert-Equal -Expected "kubeconform" -Actual $record.SchemaValidator -Message "Explicit schema validator should be forwarded with preset data."
+        Assert-True -Condition $record.RequireBootstrapSecretsReady -Message "Preset bootstrap secret readiness should be forwarded."
+    }
+    finally {
+        Remove-Item Env:REPOSITORY_VALIDATION_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Repository validation explicit values override preset validation values" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+    $overrideValuesFile = "config\platform-values.explicit.env"
+
+    try {
+        New-TestRepositoryValidationRepo -Root $testRoot
+        $env:REPOSITORY_VALIDATION_ASSET_LOG = $logPath
+
+        & $repositoryValidation `
+            -RepoRoot $testRoot `
+            -EnvironmentPreset dev `
+            -ValuesFile $overrideValuesFile 3>&1 2>&1 | Out-String | Out-Null
+
+        $record = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })[0]
+        $expectedValuesFile = Resolve-RepoPath -Root $testRoot -Path $overrideValuesFile
+
+        Assert-Equal `
+            -Expected $expectedValuesFile `
+            -Actual $record.ValuesFile `
+            -Message "Explicit ValuesFile should override preset ValidationValuesFile."
+    }
+    finally {
+        Remove-Item Env:REPOSITORY_VALIDATION_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Repository validation rejects bootstrap secret readiness when asset validation is skipped" -Body {
+    $failed = $false
+
+    try {
+        & $repositoryValidation `
+            -RepoRoot $repoRoot `
+            -RequireBootstrapSecretsReady `
+            -SkipPlatformAssetValidation `
+            -SkipTemplateValidation `
+            -SkipWorkstationValidation 3>&1 2>&1 | Out-String | Out-Null
+    }
+    catch {
+        $failed = $true
+        Assert-Equal `
+            -Expected "-RequireBootstrapSecretsReady cannot be used together with -SkipPlatformAssetValidation." `
+            -Actual $_.Exception.Message `
+            -Message "Repository validation should fail before running a contradictory asset validation request."
+    }
+
+    Assert-True -Condition $failed -Message "Repository validation should reject bootstrap readiness when asset validation is skipped."
 }
 
 Invoke-Test -Name "Test-UnsafeDeletionTarget blocks root and repository paths" -Body {

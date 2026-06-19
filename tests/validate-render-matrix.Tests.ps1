@@ -719,6 +719,31 @@ Invoke-Test -Name "Combined render validation matrix is ordered and overrideable
     }
 }
 
+Invoke-Test -Name "Render validation matrix entries resolve to valid platform selections" -Body {
+    $entries = @(Get-RenderValidationMatrix -Root $repoRoot -DefaultValuesFile "config\platform-values.env.example")
+
+    foreach ($entry in $entries) {
+        $selection = Resolve-PlatformSelection `
+            -Profile $entry.Profile `
+            -Applications @($entry.Applications) `
+            -DataServices @($entry.DataServices) `
+            -IncludeJenkins:$entry.IncludeJenkins
+
+        Assert-Equal `
+            -Expected $entry.Profile `
+            -Actual $selection.Profile `
+            -Message ("{0} '{1}' should use a known platform profile." -f $entry.Scope, $entry.Name)
+        Assert-SequenceEqual `
+            -Expected @($entry.Applications | Sort-Object -Unique) `
+            -Actual @($selection.Applications) `
+            -Message ("{0} '{1}' should use known validation applications." -f $entry.Scope, $entry.Name)
+        Assert-SequenceEqual `
+            -Expected @($entry.DataServices | Sort-Object -Unique) `
+            -Actual @($selection.DataServices) `
+            -Message ("{0} '{1}' should use known validation data services." -f $entry.Scope, $entry.Name)
+    }
+}
+
 Invoke-Test -Name "Render matrix report lists environment and profile entries as JSON" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-test-" + [Guid]::NewGuid().ToString("N"))
 
