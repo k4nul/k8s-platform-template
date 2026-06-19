@@ -271,6 +271,18 @@ if (-not $PSBoundParameters.ContainsKey("HelmConfigFile") -or -not $HelmConfigFi
 $root = (Resolve-Path -Path $RepoRoot).Path
 $resolvedHelmConfig = (Resolve-Path -Path $HelmConfigFile).Path
 $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
+$effectiveK8sDirectories = @(Get-EffectiveK8sDirectories -Root $root -Selection $selection)
+$effectiveServiceDirectories = @(Get-EffectiveServiceDirectories -Root $root -Selection $selection)
+$planSelection = [PSCustomObject]@{
+    Profile = $selection.Profile
+    Description = $selection.Description
+    Applications = @($selection.Applications)
+    DataServices = @($selection.DataServices)
+    IncludeAllK8s = [bool]$selection.IncludeAllK8s
+    IncludeAllServices = [bool]$selection.IncludeAllServices
+    K8sDirectories = @($effectiveK8sDirectories)
+    ServiceDirectories = @($effectiveServiceDirectories)
+}
 $componentCatalog = Get-PlatformK8sComponentCatalog
 $optionalManifestCatalog = Get-PlatformOptionalManifestCatalog
 $helmConfig = Import-PowerShellDataFile -Path $resolvedHelmConfig
@@ -279,7 +291,7 @@ $allComponents = @()
 $phaseMap = [ordered]@{}
 $phaseOrder = @("phase-a", "phase-b", "phase-c", "phase-d", "phase-e")
 
-foreach ($directory in $selection.K8sDirectories) {
+foreach ($directory in $planSelection.K8sDirectories) {
     if ($componentCatalog.Contains($directory)) {
         $component = $componentCatalog[$directory]
         $allComponents += [PSCustomObject]@{
@@ -337,7 +349,7 @@ foreach ($phaseId in $orderedPhaseIds) {
 
 $helmReleases = @()
 foreach ($release in @($helmConfig.Releases)) {
-    if ($selection.K8sDirectories -contains $release.K8sDirectory) {
+    if ($planSelection.K8sDirectories -contains $release.K8sDirectory) {
         $releaseNotes = if ($release.ContainsKey("Notes")) { $release.Notes } else { "" }
         $helmReleases += [PSCustomObject]@{
             Name = $release.Name
@@ -355,7 +367,7 @@ foreach ($release in @($helmConfig.Releases)) {
 $optionalManifests = @()
 foreach ($relativePath in $optionalManifestCatalog.Keys) {
     $directoryName = ($relativePath -split "[\\/]", 2)[0]
-    if ($selection.K8sDirectories -contains $directoryName) {
+    if ($planSelection.K8sDirectories -contains $directoryName) {
         $optionalManifests += [PSCustomObject]@{
             RelativePath = ("k8s\" + $relativePath)
             Notes = $optionalManifestCatalog[$relativePath]
@@ -364,7 +376,7 @@ foreach ($relativePath in $optionalManifestCatalog.Keys) {
 }
 
 $document = Get-PlanDocument `
-    -Selection $selection `
+    -Selection $planSelection `
     -AllComponents $allComponents `
     -RawPhases $rawPhases `
     -HelmReleases $helmReleases `
