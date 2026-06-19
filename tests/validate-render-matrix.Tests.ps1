@@ -585,6 +585,56 @@ Invoke-Test -Name "Environment render matrix resolves public values file precede
     }
 }
 
+Invoke-Test -Name "Combined render validation matrix keeps public environment values and profile defaults" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-combined-test-" + [Guid]::NewGuid().ToString("N"))
+    $defaultValuesFile = "config\platform-values.env.example"
+
+    try {
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "dev" `
+            -Lines @(
+                "@{",
+                "    ValuesFile = 'config\platform-values.dev.env'",
+                "    ValidationValuesFile = 'config\platform-values.env.example'",
+                "    Profile = 'web-platform'",
+                "    Applications = @('nginx-web')",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "minimal-application" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web')",
+                "    ValidationDataServices = @()",
+                "}"
+            )
+
+        $entries = @(Get-RenderValidationMatrix -Root $testRoot -DefaultValuesFile $defaultValuesFile)
+        $environmentEntry = @($entries | Where-Object { $_.Scope -eq "environment" })[0]
+        $profileEntry = @($entries | Where-Object { $_.Scope -eq "profile" })[0]
+
+        Assert-Equal `
+            -Expected $defaultValuesFile `
+            -Actual $environmentEntry.ValuesFile `
+            -Message "Combined matrix environment entries should prefer ValidationValuesFile over private delivery values."
+        Assert-Equal `
+            -Expected $defaultValuesFile `
+            -Actual $profileEntry.ValuesFile `
+            -Message "Combined matrix profile entries should use the public default values file."
+        Assert-SequenceEqual `
+            -Expected @("environment", "profile") `
+            -Actual @($entries | Select-Object -ExpandProperty Scope) `
+            -Message "Combined matrix should keep environments before profiles."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Environment render matrix applies metadata defaults and explicit flags" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-env-test-" + [Guid]::NewGuid().ToString("N"))
     $defaultValuesFile = "config\platform-values.env.example"
@@ -787,6 +837,45 @@ Invoke-Test -Name "Render matrix validation forwards normalized environment and 
         Assert-SequenceEqual -Expected @("nginx-web") -Actual @($profileRecord.Applications) -Message "Profile validation applications should be forwarded."
         Assert-SequenceEqual -Expected @() -Actual @($profileRecord.DataServices) -Message "Profile validation data services should be forwarded."
         Assert-False -Condition $profileRecord.IncludeJenkins -Message "Profile IncludeJenkins should be false unless explicitly configured."
+    }
+    finally {
+        Remove-Item Env:RENDER_MATRIX_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Render matrix validation applies explicit values override to every matrix entry" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+    $overrideValuesFile = "config\custom-public.env"
+
+    try {
+        New-TestRenderMatrixRepo -Root $testRoot
+        New-TestTextFile `
+            -Root $testRoot `
+            -RelativePath $overrideValuesFile `
+            -Lines @("PLATFORM_DOMAIN=custom.example.com")
+        $env:RENDER_MATRIX_ASSET_LOG = $logPath
+
+        & $renderMatrixValidation `
+            -RepoRoot $testRoot `
+            -ValuesFile $overrideValuesFile 3>&1 2>&1 | Out-String | Out-Null
+
+        $records = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })
+        $expectedValuesFile = Resolve-RenderMatrixRepoPath -Root $testRoot -Path $overrideValuesFile
+
+        Assert-Equal -Expected 2 -Actual $records.Count -Message "The validation command should invoke asset validation for every matrix entry."
+        foreach ($record in $records) {
+            Assert-Equal `
+                -Expected $expectedValuesFile `
+                -Actual $record.ValuesFile `
+                -Message ("Explicit values override should be forwarded to {0}." -f $record.Profile)
+        }
     }
     finally {
         Remove-Item Env:RENDER_MATRIX_ASSET_LOG -ErrorAction SilentlyContinue
