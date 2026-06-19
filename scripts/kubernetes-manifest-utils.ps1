@@ -58,6 +58,105 @@ function Normalize-ApiVersionValue {
     return $withoutComment.Trim([char[]]@('"', "'"))
 }
 
+function Normalize-YamlScalarValue {
+    param(
+        [string]$Value
+    )
+
+    if (-not $Value) {
+        return ""
+    }
+
+    $normalized = ($Value -replace '\s+#.*$', '').Trim()
+    if ($normalized -match '^&[A-Za-z0-9_-]+\s+(.+)$') {
+        $normalized = $Matches[1].Trim()
+    }
+
+    if ($normalized -match '^\*[A-Za-z0-9_-]+$') {
+        return ""
+    }
+
+    if (
+        ($normalized.StartsWith('"') -and $normalized.EndsWith('"')) -or
+        ($normalized.StartsWith("'") -and $normalized.EndsWith("'"))
+    ) {
+        $normalized = $normalized.Substring(1, $normalized.Length - 2)
+    }
+
+    return $normalized.Trim()
+}
+
+function Test-MeaningfulYamlDocument {
+    param(
+        [string]$Content
+    )
+
+    foreach ($line in ($Content -split "`r?`n")) {
+        $trimmed = $line.Trim()
+        if ($trimmed -and -not $trimmed.StartsWith("#")) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-YamlDocumentBlocks {
+    param(
+        [string]$Content
+    )
+
+    $normalized = $Content -replace "`r`n?", "`n"
+    return @(
+        [regex]::Split($normalized, '(?m)^\s*---\s*(?:#.*)?$') |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { Test-MeaningfulYamlDocument -Content $_ }
+    )
+}
+
+function Get-YamlDocumentMetadata {
+    param(
+        [string]$Document
+    )
+
+    $apiVersion = ""
+    $kind = ""
+    $name = ""
+    $namespace = ""
+
+    $apiVersionMatch = [regex]::Match($Document, '(?m)^apiVersion:\s*(.+)$')
+    if ($apiVersionMatch.Success) {
+        $apiVersion = Normalize-YamlScalarValue -Value $apiVersionMatch.Groups[1].Value
+    }
+
+    $kindMatch = [regex]::Match($Document, '(?m)^kind:\s*(.+)$')
+    if ($kindMatch.Success) {
+        $kind = Normalize-YamlScalarValue -Value $kindMatch.Groups[1].Value
+    }
+
+    $metadataMatch = [regex]::Match($Document, '(?ms)^metadata:\s*\r?\n(?<body>(?:[ \t].*(?:\r?\n|$))*)')
+    if ($metadataMatch.Success) {
+        $metadataBody = $metadataMatch.Groups["body"].Value
+
+        $nameMatch = [regex]::Match($metadataBody, '(?m)^\s*name:\s*(.+)$')
+        if ($nameMatch.Success) {
+            $name = Normalize-YamlScalarValue -Value $nameMatch.Groups[1].Value
+        }
+
+        $namespaceMatch = [regex]::Match($metadataBody, '(?m)^\s*namespace:\s*(.+)$')
+        if ($namespaceMatch.Success) {
+            $namespace = Normalize-YamlScalarValue -Value $namespaceMatch.Groups[1].Value
+        }
+    }
+
+    return [PSCustomObject]@{
+        ApiVersion = $apiVersion
+        Kind = $kind
+        Name = $name
+        Namespace = $namespace
+    }
+}
+
 function Get-CrdBackedApiGroupsFromContent {
     param(
         [string]$Content
@@ -67,7 +166,7 @@ function Get-CrdBackedApiGroupsFromContent {
     $apiGroups = New-Object System.Collections.Generic.List[string]
 
     foreach ($match in [regex]::Matches($Content, '(?m)^apiVersion:\s*(.+)$')) {
-        $apiVersion = Normalize-ApiVersionValue -Value $match.Groups[1].Value
+        $apiVersion = Normalize-YamlScalarValue -Value $match.Groups[1].Value
         if ($apiVersion -notmatch '^([^/]+)/') {
             continue
         }

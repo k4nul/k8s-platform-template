@@ -243,6 +243,27 @@ Invoke-Test -Name "Rendered bundle validation structural preflight reports malfo
     }
 }
 
+Invoke-Test -Name "Rendered bundle structural preflight accepts shared YAML metadata parsing" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestYamlFile `
+            -Root $testRoot `
+            -RelativePath "k8s\configmap.yaml" `
+            -Content "# rendered test document`n--- # first document`napiVersion: v1 # built-in API`nkind: ConfigMap`nmetadata:`n  name: &config_name 'rendered-validator-test'`n---`n# comment-only document`n"
+
+        Invoke-WithEmptyToolPath -Body {
+            $output = (& $validateRenderedScript -RenderedPath $testRoot 6>&1 3>&1 2>&1 | Out-String)
+            Assert-Contains -Content $output -Expected "Structurally validated Kubernetes manifests: 1" -Message "Shared metadata parser should support comments, quoted scalar values, anchors, and comment-only documents."
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Rendered bundle validation fails without tools in strict mode" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
 

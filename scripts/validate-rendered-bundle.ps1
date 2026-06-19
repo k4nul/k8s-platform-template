@@ -168,56 +168,6 @@ function Write-RenderedManifestValidationResult {
     Write-Host $SuccessMessage
 }
 
-function Test-MeaningfulYamlDocument {
-    param(
-        [string]$Content
-    )
-
-    foreach ($line in ($Content -split "`r?`n")) {
-        $trimmed = $line.Trim()
-        if ($trimmed -and -not $trimmed.StartsWith("#")) {
-            return $true
-        }
-    }
-
-    return $false
-}
-
-function Get-YamlDocumentMetadata {
-    param(
-        [string]$Document
-    )
-
-    $apiVersion = ""
-    $kind = ""
-    $name = ""
-
-    $apiVersionMatch = [regex]::Match($Document, '(?m)^apiVersion:\s*(.+)$')
-    if ($apiVersionMatch.Success) {
-        $apiVersion = Normalize-ApiVersionValue -Value $apiVersionMatch.Groups[1].Value
-    }
-
-    $kindMatch = [regex]::Match($Document, '(?m)^kind:\s*(.+)$')
-    if ($kindMatch.Success) {
-        $kind = Normalize-ApiVersionValue -Value $kindMatch.Groups[1].Value
-    }
-
-    $metadataMatch = [regex]::Match($Document, '(?ms)^metadata:\s*\r?\n(?<body>(?:[ \t].*(?:\r?\n|$))*)')
-    if ($metadataMatch.Success) {
-        $metadataBody = $metadataMatch.Groups["body"].Value
-        $nameMatch = [regex]::Match($metadataBody, '(?m)^\s*name:\s*(.+)$')
-        if ($nameMatch.Success) {
-            $name = Normalize-ApiVersionValue -Value $nameMatch.Groups[1].Value
-        }
-    }
-
-    return [PSCustomObject]@{
-        ApiVersion = $apiVersion
-        Kind = $kind
-        Name = $name
-    }
-}
-
 function Invoke-RenderedManifestStructuralPreflight {
     param(
         [Parameter(Mandatory = $true)]
@@ -243,10 +193,7 @@ function Invoke-RenderedManifestStructuralPreflight {
         }
 
         $content = Get-Content -Path $target.File -Raw
-        $documents = @(
-            [regex]::Split($content, '(?m)^\s*---\s*(?:#.*)?$') |
-                Where-Object { Test-MeaningfulYamlDocument -Content $_ }
-        )
+        $documents = @(Get-YamlDocumentBlocks -Content $content)
 
         if ($documents.Count -eq 0) {
             $failed.Add([PSCustomObject]@{

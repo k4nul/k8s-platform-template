@@ -15,34 +15,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 . (Join-Path $PSScriptRoot "platform-values-catalog.ps1")
-
-function Normalize-YamlScalarValue {
-    param(
-        [string]$Value
-    )
-
-    if (-not $Value) {
-        return ""
-    }
-
-    $normalized = ($Value -replace '\s+#.*$', '').Trim()
-    if ($normalized -match '^&[A-Za-z0-9_-]+\s+(.+)$') {
-        $normalized = $Matches[1].Trim()
-    }
-
-    if ($normalized -match '^\*[A-Za-z0-9_-]+$') {
-        return ""
-    }
-
-    if (
-        ($normalized.StartsWith('"') -and $normalized.EndsWith('"')) -or
-        ($normalized.StartsWith("'") -and $normalized.EndsWith("'"))
-    ) {
-        $normalized = $normalized.Substring(1, $normalized.Length - 2)
-    }
-
-    return $normalized.Trim()
-}
+. (Join-Path $PSScriptRoot "kubernetes-manifest-utils.ps1")
 
 function Test-MeaningfulScalarValue {
     param(
@@ -68,62 +41,6 @@ function Get-TextList {
     }
 
     return $Empty
-}
-
-function Get-YamlDocumentBlocks {
-    param(
-        [string]$Content
-    )
-
-    $normalized = $Content -replace "`r`n?", "`n"
-    return @(
-        $normalized -split "(?m)^---\s*$" |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ }
-    )
-}
-
-function Get-YamlDocumentMetadata {
-    param(
-        [string]$Document
-    )
-
-    $apiVersion = ""
-    $kind = ""
-    $name = ""
-    $namespace = ""
-
-    $apiVersionMatch = [regex]::Match($Document, '(?m)^apiVersion:\s*(.+)$')
-    if ($apiVersionMatch.Success) {
-        $apiVersion = Normalize-YamlScalarValue -Value $apiVersionMatch.Groups[1].Value
-    }
-
-    $kindMatch = [regex]::Match($Document, '(?m)^kind:\s*(.+)$')
-    if ($kindMatch.Success) {
-        $kind = Normalize-YamlScalarValue -Value $kindMatch.Groups[1].Value
-    }
-
-    $metadataMatch = [regex]::Match($Document, '(?ms)^metadata:\s*\r?\n(?<body>(?:[ \t].*(?:\r?\n|$))*)')
-    if ($metadataMatch.Success) {
-        $metadataBody = $metadataMatch.Groups["body"].Value
-
-        $nameMatch = [regex]::Match($metadataBody, '(?m)^\s*name:\s*(.+)$')
-        if ($nameMatch.Success) {
-            $name = Normalize-YamlScalarValue -Value $nameMatch.Groups[1].Value
-        }
-
-        $namespaceMatch = [regex]::Match($metadataBody, '(?m)^\s*namespace:\s*(.+)$')
-        if ($namespaceMatch.Success) {
-            $namespace = Normalize-YamlScalarValue -Value $namespaceMatch.Groups[1].Value
-        }
-    }
-
-    return [PSCustomObject]@{
-        ApiVersion = $apiVersion
-        Kind = $kind
-        Name = $name
-        Namespace = $namespace
-    }
 }
 
 function Get-NamespaceReferencesFromContent {
@@ -273,28 +190,6 @@ function Get-DocumentSecretReferenceEntries {
     }
 
     return $entries.ToArray()
-}
-
-function Get-BuiltInApiGroups {
-    return @(
-        "admissionregistration.k8s.io",
-        "apiextensions.k8s.io",
-        "apiregistration.k8s.io",
-        "apps",
-        "autoscaling",
-        "batch",
-        "certificates.k8s.io",
-        "coordination.k8s.io",
-        "discovery.k8s.io",
-        "events.k8s.io",
-        "extensions",
-        "networking.k8s.io",
-        "node.k8s.io",
-        "policy",
-        "rbac.authorization.k8s.io",
-        "scheduling.k8s.io",
-        "storage.k8s.io"
-    )
 }
 
 function Get-CrdNameForKind {
