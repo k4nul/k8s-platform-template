@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-18
+Last reviewed: 2026-06-19
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -12,7 +12,7 @@ Kubernetes manifest APIs, and generated-artifact hygiene.
 | Area | Repository files | Current dependency indicators |
 | --- | --- | --- |
 | PowerShell validation and rendering | `scripts/*.ps1`, `tests/*.Tests.ps1` | Requires PowerShell or `pwsh`; scripts use repository-local helpers and PowerShell data files |
-| Kubernetes schema validation | `scripts/validate-rendered-bundle.ps1`, `scripts/validate-platform-assets.ps1` | Prefers `kubeconform`; falls back to `kubectl apply --dry-run=client --validate=true`; non-strict mode warns when both are absent |
+| Kubernetes schema validation | `scripts/validate-rendered-bundle.ps1`, `scripts/validate-platform-assets.ps1`, generated `validate-bundle.ps1` | Repository validation prefers `kubeconform` and falls back to `kubectl apply --dry-run=client --validate=true`; generated bundle validation now exposes the same `auto`, `kubeconform`, and `kubectl` selection surface; non-strict mode warns when all validators are absent |
 | Workstation validation | `scripts/validate-workstation.ps1`, `scripts/invoke-repository-validation.ps1` | Strict repository validation requires `kubectl` and `helm`; `git`, `docker`, `python`, and `kubeconform` are optional readiness tools |
 | Helm chart scaffolds | `config/helm-releases.psd1`, `k8s/*/values.yaml` | ExternalDNS, Harbor, NGINX Gateway Fabric, Longhorn, Kubernetes Dashboard, and disabled VPA scaffold entries; chart references are not version-pinned in the repository |
 | Public service images | `config/service-builds.psd1`, `config/service-runtime-bindings.psd1`, `services/*/docker-compose.yaml`, `k8s/400_*/*.yaml` | `adminer:5.3.0-standalone`, `mccutchen/go-httpbin:v2.15.0`, `nginx:1.28-alpine`, `traefik/whoami:v1.10.4` |
@@ -119,6 +119,9 @@ Scope:
   does not require live cluster access.
 - Keep `kubectl` as the fallback path for workstations that already use
   Kubernetes client tooling.
+- Keep generated delivery bundles aligned with repository validation by passing
+  `-SchemaValidator auto`, `-SchemaValidator kubeconform`, or
+  `-SchemaValidator kubectl` to generated `validate-bundle.ps1`.
 - Record validator versions in the run evidence; do not commit downloaded
   binaries, caches, or generated schema output.
 
@@ -127,12 +130,14 @@ Validation:
 ```bash
 pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown
 pwsh -NoProfile -File scripts/validate-template.ps1 -SchemaValidator kubeconform
+pwsh -NoProfile -File out/delivery/dev/validate-bundle.ps1 -SchemaValidator kubeconform
 ```
 
 If `kubeconform` is unavailable but `kubectl` is installed:
 
 ```bash
 pwsh -NoProfile -File scripts/validate-template.ps1 -SchemaValidator kubectl
+pwsh -NoProfile -File out/delivery/dev/validate-bundle.ps1 -SchemaValidator kubectl
 ```
 
 ### Stage 5: Strict Helm And Security Gate Hardening
@@ -211,7 +216,8 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 3. Automation shell readiness lane that verifies `pwsh` is on `PATH` before
    recurring progress scoring runs `validate-template.ps1`.
 4. Strict schema-validator installation lane, with documented `kubeconform` and
-   `kubectl` verification outputs.
+   `kubectl` verification outputs from both repository validation and generated
+   bundle validation.
 5. Helm chart version-pin review and values compatibility lane after `helm` is
    available on the validation host.
 6. Security baseline exception and hardening policy for optional admin and
@@ -219,6 +225,17 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 7. Kubernetes API compatibility review for all raw YAML manifests.
 
 ## Changes Made And Validation
+
+The 2026-06-19 dependency-plan pass aligned generated bundle validation with
+the repository offline schema-validator lane. `write-platform-bundle-files.ps1`
+now generates `validate-bundle.ps1` with a `-SchemaValidator` parameter that
+accepts `auto`, `kubeconform`, or `kubectl`. Auto mode prefers `kubeconform`
+for offline raw manifest schema validation, uses `-ignore-missing-schemas` for
+CRD-backed resources that are not packaged with schemas, and retains the
+existing `kubectl` dry-run fallback. This improves validation portability for
+generated bundles without adding runtime dependencies, changing public image
+defaults, pinning chart versions without review, committing rendered bundles, or
+requiring a live cluster.
 
 The 2026-06-18 dependency-plan pass fixed service runtime plan image inventory
 output. `show-service-runtime-plan.ps1` now reads image references from
@@ -248,7 +265,18 @@ pwsh -NoProfile -File scripts/validate-workstation.ps1 -Strict
 pwsh -NoProfile -File scripts/show-service-build-plan.ps1 -Format markdown
 pwsh -NoProfile -File scripts/show-service-runtime-plan.ps1 -Format markdown
 pwsh -NoProfile -File scripts/show-service-dependency-plan.ps1 -Format markdown
+pwsh -NoProfile -File tests/render-platform-assets.Tests.ps1
+tmpdir=$(mktemp -d /tmp/k8s-bundle-validate-XXXXXX); pwsh -NoProfile -File scripts/render-platform-assets.ps1 -OutputPath "$tmpdir" -ValuesFile config/platform-values.env.example -Version 0.0.0-check -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -FailOnUnresolvedToken >/tmp/render-bundle.out && pwsh -NoProfile -File "$tmpdir/validate-bundle.ps1" -BundleRoot "$tmpdir"; rc=$?; rm -rf "$tmpdir"; cat /tmp/render-bundle.out; exit $rc
 ```
+
+On 2026-06-19, `tests/render-platform-assets.Tests.ps1` passed with five tests,
+including coverage for the generated bundle schema-validator selection surface.
+A generated `web-platform` delivery bundle also ran its generated
+`validate-bundle.ps1` successfully on the current workstation. It reported
+expected warnings because `kubeconform`, `kubectl`, and `helm` were not
+installed, but the helper completed and advised rerunning with
+`-SchemaValidator kubeconform` or `-SchemaValidator kubectl` after installing the
+selected validator.
 
 `command -v pwsh` resolved to `/home/k4nul/.local/bin/pwsh` in this worktree.
 `tests/show-service-runtime-plan.Tests.ps1`,

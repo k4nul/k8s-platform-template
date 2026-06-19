@@ -54,6 +54,7 @@ $renderScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\render-pl
 $deliveryScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\invoke-bundle-delivery.ps1") -Raw
 $assetValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-platform-assets.ps1") -Raw
 $templateValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-template.ps1") -Raw
+$bundleWriterScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\write-platform-bundle-files.ps1") -Raw
 $secretCatalogContent = Get-Content -Path (Join-Path $repoRoot "scripts\cluster-secret-catalog.ps1") -Raw
 $secretPlanContent = Get-Content -Path (Join-Path $repoRoot "scripts\show-cluster-secret-plan.ps1") -Raw
 
@@ -110,6 +111,29 @@ Invoke-Test -Name "Cluster secret plan shares Helm config with preflight data" -
         -Content $secretCatalogContent `
         -Expected 'HelmConfigFile = $resolvedHelmConfigFile' `
         -Message "Cluster secret catalog should call preflight with the requested Helm config."
+}
+
+Invoke-Test -Name "Generated bundle validation supports offline schema validator selection" -Body {
+    Assert-Contains `
+        -Content $bundleWriterScriptContent `
+        -Expected '[ValidateSet("auto", "kubeconform", "kubectl")]' `
+        -Message "Generated bundle validation should expose the same schema validator choices as repository validation."
+    Assert-Contains `
+        -Content $bundleWriterScriptContent `
+        -Expected '[string]$SchemaValidator = "auto"' `
+        -Message "Generated bundle validation should default to automatic validator selection."
+    Assert-Contains `
+        -Content $bundleWriterScriptContent `
+        -Expected 'Get-RawManifestValidator -RequestedValidator $SchemaValidator' `
+        -Message "Generated bundle validation should resolve the requested raw manifest validator."
+    Assert-Contains `
+        -Content $bundleWriterScriptContent `
+        -Expected 'kubeconform -strict -summary -ignore-missing-schemas' `
+        -Message "Generated bundle validation should support offline kubeconform schema validation."
+    Assert-Contains `
+        -Content $bundleWriterScriptContent `
+        -Expected '& $applyScript -BundleRoot $BundleRoot -DryRun' `
+        -Message "Generated bundle validation should keep the kubectl dry-run fallback path."
 }
 
 if ($script:TestsFailed -gt 0) {

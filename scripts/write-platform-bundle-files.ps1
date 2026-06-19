@@ -487,7 +487,9 @@ param(
     [switch]$SkipBootstrapPlaceholderCheck,
     [switch]$SkipBootstrapStatus,
     [switch]$SkipRawDryRun,
-    [switch]$SkipHelmDryRun
+    [switch]$SkipHelmDryRun,
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto"
 )
 
 Set-StrictMode -Version Latest
@@ -507,6 +509,73 @@ $bootstrapCheckScript = Join-Path $BundleRoot "cluster-bootstrap\check-secret-te
 $bootstrapStatusScript = Join-Path $BundleRoot "cluster-bootstrap\status-secrets.ps1"
 $applyScript = Join-Path $BundleRoot "apply-manifests.ps1"
 $helmScript = Join-Path $BundleRoot "install-helm-components.ps1"
+
+function Get-RawManifestValidationTargets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Manifest,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [bool]$IncludeDeferred
+    )
+
+    $targets = @()
+    foreach ($phase in @($Manifest.Phases)) {
+        foreach ($component in @($phase.Components)) {
+            if ($component.Delivery -eq "deferred-raw" -and -not $IncludeDeferred) {
+                continue
+            }
+
+            $targetPath = Join-Path $Root $component.ApplyPath
+            if (Test-Path -Path $targetPath) {
+                $targets += $targetPath
+            }
+        }
+    }
+
+    return @($targets)
+}
+
+function Get-RawManifestValidator {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RequestedValidator
+    )
+
+    $definitions = @(
+        [PSCustomObject]@{
+            Name = "kubeconform"
+            Command = "kubeconform"
+            MissingWarning = "kubeconform is not installed. Skipping raw manifest schema validation."
+        },
+        [PSCustomObject]@{
+            Name = "kubectl"
+            Command = "kubectl"
+            MissingWarning = "kubectl is not installed. Skipping raw manifest dry-run validation."
+        }
+    )
+
+    if ($RequestedValidator -ne "auto") {
+        $requested = @($definitions | Where-Object { $_.Name -eq $RequestedValidator })[0]
+        if ($null -ne (Get-Command $requested.Command -ErrorAction SilentlyContinue)) {
+            return $requested.Name
+        }
+
+        Write-Warning $requested.MissingWarning
+        return ""
+    }
+
+    foreach ($definition in $definitions) {
+        if ($null -ne (Get-Command $definition.Command -ErrorAction SilentlyContinue)) {
+            return $definition.Name
+        }
+    }
+
+    Write-Warning "Neither kubeconform nor kubectl is installed. Skipping raw manifest validation."
+    return ""
+}
 
 if (-not $SkipBootstrapPlaceholderCheck -and (Test-Path -Path $bootstrapCheckScript -PathType Leaf)) {
     Write-Host "== Bootstrap placeholder check =="
@@ -541,9 +610,22 @@ if (-not $SkipRawDryRun) {
         Write-Host "No raw manifest phases are included in this bundle."
     }
     else {
-        $kubectl = Get-Command kubectl -ErrorAction SilentlyContinue
-        if ($null -eq $kubectl) {
-            Write-Warning "kubectl is not installed. Skipping raw manifest dry-run validation."
+        $rawManifestValidator = Get-RawManifestValidator -RequestedValidator $SchemaValidator
+        if (-not $rawManifestValidator) {
+            Write-Host "Run with -SchemaValidator kubeconform or -SchemaValidator kubectl after installing the selected validator."
+        }
+        elseif ($rawManifestValidator -eq "kubeconform") {
+            $rawManifestTargets = @(Get-RawManifestValidationTargets -Manifest $manifest -Root $BundleRoot -IncludeDeferred ([bool]$IncludeDeferredComponents))
+            if ($rawManifestTargets.Count -eq 0) {
+                Write-Host "No raw manifest paths were found for kubeconform validation."
+            }
+            else {
+                Write-Host "== Raw manifest schema validation =="
+                & kubeconform -strict -summary -ignore-missing-schemas @rawManifestTargets
+                if ($LASTEXITCODE -ne 0) {
+                    throw "kubeconform validation failed for raw bundle manifests."
+                }
+            }
         }
         else {
             Write-Host "== Raw manifest dry-run =="
