@@ -37,7 +37,7 @@ $errors = New-Object System.Collections.Generic.List[string]
 
 foreach ($catalogFile in $catalogFiles) {
     $catalog = Import-PowerShellDataFile -Path $catalogFile.Path
-    $catalogServiceNames = @($catalog.Services | Sort-Object { $_.Name } | ForEach-Object { $_.Name })
+    $catalogServiceNames = @($catalog.Services | Sort-Object Name | ForEach-Object { $_.Name })
     $missingEntries = @($serviceDirectories | Where-Object { $catalogServiceNames -notcontains $_ })
     $extraEntries = @($catalogServiceNames | Where-Object { $serviceDirectories -notcontains $_ })
 

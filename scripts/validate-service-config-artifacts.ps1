@@ -36,7 +36,7 @@ foreach ($line in Get-Content -Path $ValuesFile) {
 }
 
 $catalogMap = [ordered]@{}
-foreach ($service in @($catalog.Services | Sort-Object { $_.Name })) {
+foreach ($service in @($catalog.Services | Sort-Object Name)) {
     $catalogMap[$service.Name] = $service
 }
 

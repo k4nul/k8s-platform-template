@@ -27,7 +27,7 @@ $errors = New-Object System.Collections.Generic.List[string]
 $warnings = New-Object System.Collections.Generic.List[string]
 $catalogMap = [ordered]@{}
 
-foreach ($service in @($dependencyCatalog.Services | Sort-Object { $_.Name })) {
+foreach ($service in @($dependencyCatalog.Services | Sort-Object Name)) {
     $catalogMap[$service.Name] = $service
 }
 

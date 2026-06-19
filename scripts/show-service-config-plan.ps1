@@ -50,7 +50,7 @@ if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
 $root = (Resolve-Path -Path $RepoRoot).Path
 $catalogPath = Join-Path $root "config\service-config-artifacts.psd1"
 $catalog = Import-PowerShellDataFile -Path $catalogPath
-$allServices = @($catalog.Services | Sort-Object { $_.Name })
+$allServices = @($catalog.Services | Sort-Object Name)
 $availableServiceNames = @($allServices | ForEach-Object { $_.Name })
 
 $selectedServices = @()

@@ -23,7 +23,7 @@ function Get-PlatformValueCatalogMap {
 
     $catalog = Get-PlatformValueCatalog -RepoRoot $RepoRoot
     $map = [ordered]@{}
-    foreach ($entry in @($catalog.Values | Sort-Object { $_.Name })) {
+    foreach ($entry in @($catalog.Values | Sort-Object Name)) {
         $map[$entry.Name] = $entry
     }
 
@@ -89,7 +89,7 @@ function Get-PlatformValuePlanData {
     $serviceConfigMap = [ordered]@{}
     $builtInTokens = @("DOCKER_REGISTRY", "VERSION")
 
-    foreach ($service in @($serviceConfigCatalog.Services | Sort-Object { $_.Name })) {
+    foreach ($service in @($serviceConfigCatalog.Services | Sort-Object Name)) {
         $serviceConfigMap[$service.Name] = $service
     }
 

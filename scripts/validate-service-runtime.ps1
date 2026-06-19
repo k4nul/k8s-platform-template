@@ -17,7 +17,7 @@ $catalog = Import-PowerShellDataFile -Path $catalogPath
 $errors = New-Object System.Collections.Generic.List[string]
 
 $catalogMap = [ordered]@{}
-foreach ($service in @($catalog.Services | Sort-Object { $_.Name })) {
+foreach ($service in @($catalog.Services | Sort-Object Name)) {
     $catalogMap[$service.Name] = $service
 }
 

@@ -36,7 +36,7 @@ $dependencyCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\se
 $dataServiceCatalog = Get-PlatformDataServiceCatalog
 
 $dependencyMap = [ordered]@{}
-foreach ($service in @($dependencyCatalog.Services | Sort-Object { $_.Name })) {
+foreach ($service in @($dependencyCatalog.Services | Sort-Object Name)) {
     $dependencyMap[$service.Name] = $service
 }
 

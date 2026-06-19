@@ -69,7 +69,7 @@ function Get-CatalogMap {
     )
 
     $map = [ordered]@{}
-    foreach ($service in @($Services | Sort-Object { $_.Name })) {
+    foreach ($service in @($Services | Sort-Object Name)) {
         $map[$service.Name] = $service
     }
 
