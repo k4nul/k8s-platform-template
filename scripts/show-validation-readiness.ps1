@@ -249,14 +249,15 @@ foreach ($definition in $toolDefinitions) {
     }
 }
 
+$kubectlReport = @($toolReport | Where-Object { $_.Tool -eq "kubectl" })[0]
+$kubeconformReport = @($toolReport | Where-Object { $_.Tool -eq "kubeconform" })[0]
+$helmReport = @($toolReport | Where-Object { $_.Tool -eq "helm" })[0]
 $requiredTools = @($toolReport | Where-Object { $_.RequiredForSelectedValidation })
 $installedRequiredTools = @($requiredTools | Where-Object { $_.Installed })
 $installedSchemaValidators = @(
-    @("kubeconform", "kubectl") |
-        Where-Object {
-            $toolName = $_
-            @($toolReport | Where-Object { $_.Tool -eq $toolName -and $_.Installed }).Count -gt 0
-        }
+    @($kubeconformReport, $kubectlReport) |
+        Where-Object { $_.Installed } |
+        Select-Object -ExpandProperty Tool
 )
 $schemaValidatorRequirement = [PSCustomObject]@{
     Required = [bool]$requiresRenderedManifestValidation
@@ -310,10 +311,10 @@ $availableChecks.Add("Service catalog, build, config, pipeline, and runtime vali
 $availableChecks.Add("Placeholder scanning via .\scripts\check-placeholders.ps1 -Path .") | Out-Null
 
 if ($requiresRenderedManifestValidation) {
-    if (($toolReport | Where-Object { $_.Tool -eq "kubectl" }).Installed) {
+    if ($kubectlReport.Installed) {
         $availableChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1 using kubectl") | Out-Null
     }
-    elseif (($toolReport | Where-Object { $_.Tool -eq "kubeconform" }).Installed) {
+    elseif ($kubeconformReport.Installed) {
         $availableChecks.Add("Rendered raw manifest and bootstrap YAML schema validation via .\scripts\validate-platform-assets.ps1 using kubeconform") | Out-Null
     }
     else {
@@ -322,7 +323,7 @@ if ($requiresRenderedManifestValidation) {
 }
 
 if ($requiresHelm) {
-    if (($toolReport | Where-Object { $_.Tool -eq "helm" }).Installed) {
+    if ($helmReport.Installed) {
         $availableChecks.Add("Helm template validation via .\scripts\validate-platform-assets.ps1") | Out-Null
     }
     else {

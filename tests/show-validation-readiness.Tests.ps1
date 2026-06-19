@@ -175,6 +175,10 @@ Invoke-Test -Name "Readiness JSON groups alternative schema validators as one mi
     $kubectlReport = @($document.ToolReport | Where-Object { $_.Tool -eq "kubectl" })[0]
     $kubeconformReport = @($document.ToolReport | Where-Object { $_.Tool -eq "kubeconform" })[0]
     $helmReport = @($document.ToolReport | Where-Object { $_.Tool -eq "helm" })[0]
+    Assert-SequenceEqual `
+        -Expected @("kubectl", "kubeconform", "helm", "git", "docker", "python") `
+        -Actual @($document.ToolReport | Select-Object -ExpandProperty Tool) `
+        -Message "Readiness JSON should keep a stable tool report order."
     Assert-Equal `
         -Expected "schema-validator alternative" `
         -Actual $kubectlReport.RequirementRole `
