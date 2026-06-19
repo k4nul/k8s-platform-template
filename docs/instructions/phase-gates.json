@@ -2,16 +2,16 @@
   "schema_version": "1.1.0",
   "project": "devops/k8s-platform-template",
   "current_phase": "public-default-security-review",
-  "next_phase": "",
+  "next_phase": "template-maintenance",
   "transition": {
-    "intent": "Run the scoped public-default security review while preserving public profile rendering, schema validation, and security baseline gates.",
-    "mode": "public-default-security-review-active",
+    "intent": "Complete the scoped public-default security review and return to template maintenance after the validation and posture evidence gates pass.",
+    "mode": "public-default-security-review-ready",
     "validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
-    "transition_validation_command": "",
+    "transition_validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
     "phase_update_files": [
       "docs/instructions/phase-gates.json"
     ],
-    "decision_rule": "Select the next scoped phase and transition_validation_command after the public-default security review exit criteria are satisfied."
+    "decision_rule": "Route a phase-transition run to template-maintenance only after the public-default security review exit criteria and template validation command pass."
   },
   "phase_model": [
     {
@@ -149,7 +149,7 @@
       "id": "public-default-security-review-scope-selected",
       "status": "machine-check",
       "required_for_transition": true,
-      "description": "Template maintenance must keep an explicit next security review scope before routing a phase transition.",
+      "description": "The public-default security review must keep an explicit next phase and transition validation command before automated transition routing resumes.",
       "evidence": [
         "docs/instructions/phase-gates.json",
         "docs/maintenance.md",
@@ -157,7 +157,7 @@
         "k8s/311_platform_kubernetes-dashboard/README.md",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in template-maintenance and select a reviewable next_phase plus transition_validation_command."
+      "on_failure": "Stay in public-default-security-review and restore a reviewable next_phase plus transition_validation_command."
     }
   ]
 }

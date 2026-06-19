@@ -1,15 +1,16 @@
 # Template Maintenance
 
-This guide is for maintainers keeping the public Kubernetes platform template in
-the `template-maintenance` phase. Use it when a dashboard, scheduled automation,
-or reviewer reports that Kubernetes validation is failing and you need to
-separate a template regression from local workstation readiness.
+This guide is for maintainers working through the active
+`public-default-security-review` phase and returning the public Kubernetes
+platform template to `template-maintenance`. Use it when a dashboard, scheduled
+automation, or reviewer reports that Kubernetes validation is failing and you
+need to separate a template regression from local workstation readiness.
 
 ## Active Maintenance Scope
 
-The selected next scope is `public-default-security-review`. It keeps maintenance
-focused on the intentionally permissive public-default posture before any new
-platform expansion:
+The active scope is `public-default-security-review`. It keeps maintenance
+focused on the intentionally permissive public-default posture before returning
+to normal template maintenance:
 
 - review `platform-public-ingress-baseline` and keep its demo-friendly ingress
   behavior explicit
@@ -20,6 +21,8 @@ platform expansion:
 - keep proving the scope with `scripts/validate-template.ps1`, which checks the
   phase manifest, render matrix, schema-validator wiring, and Kubernetes
   security baseline
+- route a dedicated phase-transition run back to `template-maintenance` only
+  after the template gate and review evidence remain green
 
 Do not add live cluster access, private registry assumptions, or committed
 rendered bundles as part of this scope.
@@ -79,7 +82,7 @@ these checks in order:
 
 | Evidence | Command | Interpret it as |
 | --- | --- | --- |
-| Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for `template-maintenance`. |
+| Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for the active public-default security review. |
 | Matrix coverage report | `.\scripts\show-render-matrix.ps1 -Format markdown` | Lists the environment and profile entries, values-file resolution, and representative public selections without rendering bundles. |
 | Matrix validation | `.\scripts\validate-render-matrix.ps1` | Renders and validates every public environment and profile matrix entry using temporary output. |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown` | Shows whether the current machine has the tools needed for the selected validation workflow. |
@@ -137,9 +140,10 @@ public-default package also fails.
 
 ## Phase Transition Readiness
 
-`docs/instructions/phase-gates.json` records `template-maintenance` as the
-current phase and `public-default-security-review` as the selected next phase.
-Its transition validation command is the same template maintenance gate:
+`docs/instructions/phase-gates.json` records `public-default-security-review`
+as the current phase and `template-maintenance` as the selected next phase after
+the review. Its transition validation command is the same template maintenance
+gate:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
@@ -148,9 +152,10 @@ env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-templat
 When that command passes, a phase-transition run should only update the phase
 manifest files listed in `transition.phase_update_files`. It should not add new
 platform scope, require live cluster access, introduce private image defaults,
-or commit rendered bundles. Continue using docs-update, maintenance-audit, and
-security-review work to clarify evidence or review public-default posture while
-the project remains in `template-maintenance`.
+or commit rendered bundles. Continue using docs-update, maintenance-audit,
+implementation-package, and security-review work to clarify evidence or review
+public-default posture while the project remains in
+`public-default-security-review`.
 
 ## Public Defaults And Values Files
 

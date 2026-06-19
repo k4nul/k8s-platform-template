@@ -297,9 +297,9 @@ from the catalog, and dependency-plan status counts of `ready=4`, `attention=0`,
 
 ## Current Automated Phase State
 
-The `schema-security-baseline` transition validation command passed, and the
-project phase metadata now records `template-maintenance` with
-`public-default-security-review` selected as `next_phase`. The transition
-validation command remains `scripts/validate-template.ps1`, so a dedicated
+The `schema-security-baseline` transition validation command passed. The project
+phase metadata now records `public-default-security-review` as the active phase
+with `template-maintenance` selected as `next_phase`. The transition validation
+command remains `scripts/validate-template.ps1`, so a dedicated
 phase-transition run can update only the phase manifest when that command
 passes.

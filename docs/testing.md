@@ -110,8 +110,8 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
 
 The template gate is the continuing maintenance check for this repository. It
-also served as the completed `schema-security-baseline` transition gate before
-the project moved into `template-maintenance`.
+also serves as the active `public-default-security-review` transition evidence
+before the project returns to `template-maintenance`.
 
 For the maintainer runbook that turns this gate into progress-dashboard
 evidence, see [maintenance.md](maintenance.md).
@@ -131,7 +131,7 @@ Interpret the result before running broader checks:
 
 | Gate result | Interpretation |
 | --- | --- |
-| Passes | Public template rendering, render matrix coverage, rendered schema-validator wiring, and security-baseline checks are healthy for `template-maintenance`. Continue with workstation readiness checks if another workflow still fails. |
+| Passes | Public template rendering, render matrix coverage, rendered schema-validator wiring, and security-baseline checks are healthy for the active phase. Continue with workstation readiness checks if another workflow still fails. |
 | Fails in repository path or catalog checks | A required file, script, test, catalog entry, or public values input is missing or inconsistent. Fix the reported repository item. |
 | Fails during smoke render or render matrix | A bundled profile, environment preset, public values default, or manifest source broke public render validation. Fix the failing public-default input and rerun the matrix. |
 | Warns about missing `kubeconform`, `kubectl`, or `helm` | The non-strict template gate reached optional validator paths. Install the missing tool when you need that proof; do not change manifests only because this local machine lacks the tool. |
@@ -166,7 +166,8 @@ env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-templat
 That command remains the machine-readable maintenance validation command in
 `docs/instructions/phase-gates.json`. It proves the public-default render,
 schema-validation, and security-baseline paths that allowed the project to move
-to `template-maintenance`.
+to `template-maintenance`, and it is also the transition validation command for
+the active `public-default-security-review` phase.
 
 The maintenance gate currently covers:
 
@@ -187,14 +188,15 @@ The maintenance gate currently covers:
 - render matrix validation for every bundled environment preset and every
   public profile shape
 
-The current maintenance manifest selects `public-default-security-review` as the
-next scope. See [maintenance.md](maintenance.md) for the current review focus,
+The current phase manifest records `public-default-security-review` as active
+and `template-maintenance` as the next phase after the review evidence remains
+green. See [maintenance.md](maintenance.md) for the current review focus,
 transition evidence path, and guardrails.
 
 After this gate passes, keep profile and environment coverage stable while the
-phase transition updates the project metadata. Do not introduce a live cluster
-requirement, private image default, or committed rendered bundle as part of the
-phase transition.
+phase-transition run updates only the project metadata listed in the phase
+manifest. Do not introduce a live cluster requirement, private image default, or
+committed rendered bundle as part of the phase transition.
 
 ## Public-Default Render Matrix
 
