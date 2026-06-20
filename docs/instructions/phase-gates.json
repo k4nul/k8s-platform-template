@@ -107,7 +107,7 @@
         "tests/validate-render-matrix.Tests.ps1",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in schema-security-baseline and restore environment/profile matrix coverage."
+      "on_failure": "Stay in public-default-security-review and restore environment/profile matrix coverage."
     },
     {
       "id": "rendered-schema-validation-defined",
@@ -119,7 +119,7 @@
         "tests/validate-rendered-bundle.Tests.ps1",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in schema-security-baseline and restore kubeconform or kubectl client dry-run validation coverage."
+      "on_failure": "Stay in public-default-security-review and restore kubeconform or kubectl client dry-run validation coverage."
     },
     {
       "id": "security-baseline-validation-defined",
@@ -131,7 +131,7 @@
         "tests/validate-kubernetes-security-baseline.Tests.ps1",
         "pwsh -NoProfile -File scripts/validate-template.ps1"
       ],
-      "on_failure": "Stay in schema-security-baseline and restore securityContext, resources, probes, NetworkPolicy, and Secret-template coverage."
+      "on_failure": "Stay in public-default-security-review and restore securityContext, resources, probes, NetworkPolicy, and Secret-template coverage."
     },
     {
       "id": "rendered-outputs-untracked",

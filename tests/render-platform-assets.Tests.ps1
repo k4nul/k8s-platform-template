@@ -102,6 +102,25 @@ Invoke-Test -Name "Template validation forwards rendered schema and high securit
         -Message "Template validation should keep rendered checks on public values."
 }
 
+Invoke-Test -Name "Template validation asserts public-default transition metadata" -Body {
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected 'function Assert-PhaseTransitionMetadata' `
+        -Message "Template validation should centralize phase transition metadata checks."
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected 'public-default-security-review' `
+        -Message "Template validation should keep the active public-default review phase covered."
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected 'next_phase ''template-maintenance''' `
+        -Message "Template validation should require the documented public-default handoff target."
+    Assert-Contains `
+        -Content $templateValidationScriptContent `
+        -Expected 'transition.transition_validation_command' `
+        -Message "Template validation should require an automated transition validation command."
+}
+
 Invoke-Test -Name "Cluster secret plan shares Helm config with preflight data" -Body {
     Assert-Contains `
         -Content $secretPlanContent `

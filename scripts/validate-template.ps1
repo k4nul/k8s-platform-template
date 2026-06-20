@@ -51,7 +51,7 @@ function Get-RequiredObjectProperty {
     return $property.Value
 }
 
-function Assert-TemplateMaintenanceScopeSelected {
+function Assert-PhaseTransitionMetadata {
     param(
         [Parameter(Mandatory = $true)]
         [string]$Path
@@ -59,8 +59,7 @@ function Assert-TemplateMaintenanceScopeSelected {
 
     $phaseGates = Get-Content -Path $Path -Raw | ConvertFrom-Json
     $currentPhase = [string](Get-RequiredObjectProperty -InputObject $phaseGates -Name "current_phase" -Label "Phase gates manifest")
-
-    if ($currentPhase -ne "template-maintenance") {
+    if ($currentPhase -notin @("public-default-security-review", "template-maintenance")) {
         return
     }
 
@@ -73,12 +72,16 @@ function Assert-TemplateMaintenanceScopeSelected {
             -Label "Phase gates transition"
     )
 
+    if ($currentPhase -eq "public-default-security-review" -and $nextPhase.Trim() -ne "template-maintenance") {
+        throw "Public-default security review phase must declare next_phase 'template-maintenance' before automated transition routing can resume."
+    }
+
     if (-not $nextPhase.Trim()) {
         throw "Template maintenance phase must declare next_phase before automated transition routing can resume."
     }
 
     if (-not $transitionValidationCommand.Trim()) {
-        throw "Template maintenance phase must declare transition.transition_validation_command before automated transition routing can resume."
+        throw ("{0} phase must declare transition.transition_validation_command before automated transition routing can resume." -f $currentPhase)
     }
 }
 
@@ -195,7 +198,7 @@ $phaseGatesManifest = Join-Path $root "docs\instructions\phase-gates.json"
 
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubeconform" -Label "Rendered Kubernetes offline schema validation gate"
 Assert-FileContains -Path $renderedBundleValidation -Pattern "kubectl apply --dry-run=client" -Label "Rendered Kubernetes kubectl dry-run validation gate"
-Assert-TemplateMaintenanceScopeSelected -Path $phaseGatesManifest
+Assert-PhaseTransitionMetadata -Path $phaseGatesManifest
 Assert-PublicDefaultSecurityReviewPosture -Root $root
 
 $coreRenderMatrixProfiles = @(
