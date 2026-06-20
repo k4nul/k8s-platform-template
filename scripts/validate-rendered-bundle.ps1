@@ -114,6 +114,60 @@ function Get-RenderedValidationCategoryCount {
     return @($Items | Where-Object { $_.Category -eq $Category }).Count
 }
 
+function Add-RenderedManifestSkip {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Skipped,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    $Skipped.Add([PSCustomObject]@{
+        Category = $Target.Category
+        File = $Target.RelativePath
+        Reason = "Skipped CRD-backed resource validation. Use -ValidateCrdBackedResources to include it."
+    }) | Out-Null
+}
+
+function Add-RenderedManifestValidationSuccess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Validated,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    $Validated.Add([PSCustomObject]@{
+        Category = $Target.Category
+        File = $Target.RelativePath
+    }) | Out-Null
+}
+
+function Add-RenderedManifestValidationFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Failed,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target,
+
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string]$Message
+    )
+
+    $Failed.Add([PSCustomObject]@{
+        Category = $Target.Category
+        File = $Target.RelativePath
+        Message = $Message
+    }) | Out-Null
+}
+
 function Write-RenderedManifestValidationResult {
     param(
         [Parameter(Mandatory = $true)]
@@ -184,11 +238,7 @@ function Invoke-RenderedManifestStructuralPreflight {
 
     foreach ($target in $Targets) {
         if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
-            $skipped.Add([PSCustomObject]@{
-                Category = $target.Category
-                File = $target.RelativePath
-                Reason = "Skipped CRD-backed resource validation. Use -ValidateCrdBackedResources to include it."
-            }) | Out-Null
+            Add-RenderedManifestSkip -Skipped $skipped -Target $target
             continue
         }
 
@@ -196,11 +246,10 @@ function Invoke-RenderedManifestStructuralPreflight {
         $documents = @(Get-YamlDocumentBlocks -Content $content)
 
         if ($documents.Count -eq 0) {
-            $failed.Add([PSCustomObject]@{
-                Category = $target.Category
-                File = $target.RelativePath
-                Message = "YAML file did not contain a Kubernetes document."
-            }) | Out-Null
+            Add-RenderedManifestValidationFailure `
+                -Failed $failed `
+                -Target $target `
+                -Message "YAML file did not contain a Kubernetes document."
             continue
         }
 
@@ -223,19 +272,15 @@ function Invoke-RenderedManifestStructuralPreflight {
             }
 
             if ($missingFields.Count -gt 0) {
-                $failed.Add([PSCustomObject]@{
-                    Category = $target.Category
-                    File = $target.RelativePath
-                    Message = ("Document {0} is missing: {1}" -f $documentIndex, ($missingFields -join ", "))
-                }) | Out-Null
+                Add-RenderedManifestValidationFailure `
+                    -Failed $failed `
+                    -Target $target `
+                    -Message ("Document {0} is missing: {1}" -f $documentIndex, ($missingFields -join ", "))
             }
         }
 
         if ($failed.Count -eq 0 -or @($failed | Where-Object { $_.File -eq $target.RelativePath }).Count -eq 0) {
-            $validated.Add([PSCustomObject]@{
-                Category = $target.Category
-                File = $target.RelativePath
-            }) | Out-Null
+            Add-RenderedManifestValidationSuccess -Validated $validated -Target $target
         }
     }
 
@@ -334,28 +379,20 @@ Write-Host ("Rendered manifest validator: {0}" -f $validator)
 
 foreach ($target in $validationTargets) {
     if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
-        $skipped.Add([PSCustomObject]@{
-            Category = $target.Category
-            File = $target.RelativePath
-            Reason = "Skipped CRD-backed resource validation. Use -ValidateCrdBackedResources to include it."
-        }) | Out-Null
+        Add-RenderedManifestSkip -Skipped $skipped -Target $target
         continue
     }
 
     $output = Invoke-RenderedManifestValidator -Validator $validator -File $target.File
 
     if ($LASTEXITCODE -eq 0) {
-        $validated.Add([PSCustomObject]@{
-            Category = $target.Category
-            File = $target.RelativePath
-        }) | Out-Null
+        Add-RenderedManifestValidationSuccess -Validated $validated -Target $target
     }
     else {
-        $failed.Add([PSCustomObject]@{
-            Category = $target.Category
-            File = $target.RelativePath
-            Message = $output.Trim()
-        }) | Out-Null
+        Add-RenderedManifestValidationFailure `
+            -Failed $failed `
+            -Target $target `
+            -Message $output.Trim()
     }
 }
 

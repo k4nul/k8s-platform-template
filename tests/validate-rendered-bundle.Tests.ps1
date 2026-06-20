@@ -264,6 +264,27 @@ Invoke-Test -Name "Rendered bundle structural preflight accepts shared YAML meta
     }
 }
 
+Invoke-Test -Name "Rendered bundle structural preflight skips CRD-backed resources by default" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestRenderedBundleWithMixedTargets -Root $testRoot
+
+        Invoke-WithEmptyToolPath -Body {
+            $output = (& $validateRenderedScript -RenderedPath $testRoot 6>&1 3>&1 2>&1 | Out-String)
+
+            Assert-Contains -Content $output -Expected "Structurally validated Kubernetes manifests: 1" -Message "Structural preflight should validate built-in Kubernetes manifests."
+            Assert-Contains -Content $output -Expected "Skipped rendered YAML files: 1" -Message "Structural preflight should report skipped CRD-backed manifests."
+            Assert-Contains -Content $output -Expected "k8s/custom-resource.yaml" -Message "Structural preflight skip output should include the CRD-backed relative path."
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Rendered bundle validation fails without tools in strict mode" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("rendered-validator-test-" + [Guid]::NewGuid().ToString("N"))
 
