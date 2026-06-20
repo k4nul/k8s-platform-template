@@ -50,7 +50,7 @@ When the gate passes, it proves the current maintenance baseline:
 - rendered manifest schema validation is wired through `kubeconform` first,
   then `kubectl apply --dry-run=client --validate=true`
 - Kubernetes security baseline checks cover workload hardening, RBAC,
-  NetworkPolicy review items, and concrete sensitive Secret values, with
+  NetworkPolicy review items, service account token automount posture, and concrete sensitive Secret values, with
   high-severity source and rendered findings failing the template gate
 - every bundled environment preset and every public profile shape is covered by
   the render matrix

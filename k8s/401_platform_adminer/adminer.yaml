@@ -15,6 +15,7 @@ spec:
       labels:
         app: adminer
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

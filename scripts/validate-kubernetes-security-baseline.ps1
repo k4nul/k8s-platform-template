@@ -604,6 +604,18 @@ foreach ($file in $yamlFiles) {
         -Message "A container image uses the mutable latest tag." `
         -Remediation "Pin the image to a reviewable version tag."
 
+    $explicitServiceAccountTokenAutomount = $content -match '(?m)^\s{6,}automountServiceAccountToken:\s*true\s*$'
+    if ($explicitServiceAccountTokenAutomount) {
+        Add-Finding `
+            -Findings $findings `
+            -Severity "medium" `
+            -Id "service-account-token-automount" `
+            -File $relativePath `
+            -Line (Get-FirstMatchLineNumber -Content $content -Pattern '^\s{6,}automountServiceAccountToken:\s*true\s*$') `
+            -Message "A workload explicitly automounts a service account token." `
+            -Remediation "Set automountServiceAccountToken to false unless the workload has a reviewed Kubernetes API access requirement."
+    }
+
     Add-RegexFinding `
         -Findings $findings `
         -Content $content `
@@ -653,6 +665,18 @@ foreach ($file in $yamlFiles) {
             -File $relativePath `
             -Message "A workload does not declare a pod or container securityContext." `
             -Remediation "Add a securityContext after confirming the public image supports the intended user, filesystem, and capability settings."
+    }
+
+    if (-not $explicitServiceAccountTokenAutomount -and
+        $content -notmatch '(?m)^\s{6,}serviceAccountName:\s*\S+\s*$' -and
+        $content -notmatch '(?m)^\s{6,}automountServiceAccountToken:\s*false\s*$') {
+        Add-Finding `
+            -Findings $findings `
+            -Severity "medium" `
+            -Id "missing-service-account-token-disable" `
+            -File $relativePath `
+            -Message "A workload that uses the default service account does not disable service account token automounting." `
+            -Remediation "Set automountServiceAccountToken to false for workloads that do not need Kubernetes API access."
     }
 
     if ($content -notmatch '(?m)^\s{8,}readinessProbe:\s*$') {

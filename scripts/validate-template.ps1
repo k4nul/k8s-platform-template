@@ -216,6 +216,7 @@ $securityBaselineTerms = @(
     "resources",
     "readinessProbe",
     "livenessProbe",
+    "automountServiceAccountToken",
     "NetworkPolicy",
     "wildcard-rbac"
 )

@@ -15,6 +15,7 @@ spec:
       labels:
         app: edge-nginx
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

@@ -297,7 +297,7 @@ installed, the rendered schema-validation requirement is satisfied.
 It reports:
 
 - high-severity defaults such as privileged containers, host namespace access, `hostPath` volumes, `cluster-admin` bindings, and wildcard RBAC resources or verbs
-- medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
+- medium-severity gaps such as missing resources, pod or container `securityContext`, readiness probes, liveness probes, service account token automounting on default-account workloads, mutable `latest` tags, skipped TLS verification, and concrete sensitive values in rendered or bootstrap Secret templates
 - low-severity review items such as external Service exposure and missing NetworkPolicy coverage
 
 By default the baseline script reports findings without failing the run. The template gate opts into `-FailOnHighFinding` for the source tree and `-FailOnHighSecurityBaselineFinding` for its rendered smoke and matrix checks. Use `-FailOnHighSecurityBaselineFinding` with direct `validate-render-matrix.ps1` or `validate-platform-assets.ps1` runs when high-severity rendered-bundle findings should block those commands outside the template gate.

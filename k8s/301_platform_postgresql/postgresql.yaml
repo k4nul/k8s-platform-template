@@ -16,6 +16,7 @@ spec:
       labels:
         app: postgresql
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault

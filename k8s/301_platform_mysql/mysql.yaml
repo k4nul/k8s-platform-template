@@ -17,6 +17,7 @@ spec:
       labels:
         app: mysql
     spec:
+      automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault
