@@ -774,6 +774,57 @@ Invoke-Test -Name "Render matrix report lists environment and profile entries as
     }
 }
 
+Invoke-Test -Name "Render matrix report marks missing environment validation values" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestTextFile `
+            -Root $testRoot `
+            -RelativePath "config\platform-values.env.example" `
+            -Lines @("PLATFORM_DOMAIN=example.com")
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "dev" `
+            -Lines @(
+                "@{",
+                "    ValidationValuesFile = 'config\missing-public-values.env'",
+                "    Profile = 'minimal-application'",
+                "    Applications = @('nginx-web')",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "minimal-application" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web')",
+                "    ValidationDataServices = @()",
+                "}"
+            )
+
+        $json = (& $renderMatrixShow -RepoRoot $testRoot -Format json | Out-String)
+        $document = $json | ConvertFrom-Json
+        $environmentEntry = @($document.Entries | Where-Object { $_.Scope -eq "environment" })[0]
+        $profileEntry = @($document.Entries | Where-Object { $_.Scope -eq "profile" })[0]
+        $expectedMissingValuesFile = Resolve-RenderMatrixRepoPath -Root $testRoot -Path "config\missing-public-values.env"
+        $expectedPublicValuesFile = Resolve-RenderMatrixRepoPath -Root $testRoot -Path "config\platform-values.env.example"
+
+        Assert-Equal -Expected "dev" -Actual $environmentEntry.Name -Message "Environment entry names should be preserved when validation values are missing."
+        Assert-Equal -Expected "config\missing-public-values.env" -Actual $environmentEntry.ValuesFile -Message "The report should retain the missing environment validation values path."
+        Assert-Equal -Expected $expectedMissingValuesFile -Actual $environmentEntry.ValuesFileResolved -Message "The report should resolve missing validation values from the repository root."
+        Assert-False -Condition $environmentEntry.ValuesFileExists -Message "Missing environment validation values should be visible in the report."
+
+        Assert-Equal -Expected "minimal-application" -Actual $profileEntry.Name -Message "Profile entries should still be reported."
+        Assert-Equal -Expected $expectedPublicValuesFile -Actual $profileEntry.ValuesFileResolved -Message "Profile entries should keep using public defaults."
+        Assert-True -Condition $profileEntry.ValuesFileExists -Message "Existing profile values should be marked present."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Render matrix report writes markdown coverage table" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-test-" + [Guid]::NewGuid().ToString("N"))
     $outputPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-report-" + [Guid]::NewGuid().ToString("N") + ".md")
@@ -936,6 +987,69 @@ Invoke-Test -Name "Render matrix validation fails before rendering when a matrix
     }
 
     Assert-True -Condition $failed -Message "Render matrix validation should fail when the selected values file is absent."
+}
+
+Invoke-Test -Name "Render matrix validation fails before rendering when an environment validation values file is missing" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("render-matrix-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+    $missingValuesFile = "config\missing-public-values.env"
+    $failed = $false
+
+    try {
+        New-TestTextFile `
+            -Root $testRoot `
+            -RelativePath "config\platform-values.env.example" `
+            -Lines @("PLATFORM_DOMAIN=example.com")
+        New-TestEnvironmentPreset `
+            -Root $testRoot `
+            -Name "dev" `
+            -Lines @(
+                "@{",
+                "    ValidationValuesFile = 'config\missing-public-values.env'",
+                "    Profile = 'minimal-application'",
+                "    Applications = @('nginx-web')",
+                "}"
+            )
+        New-TestProfileDefinition `
+            -Root $testRoot `
+            -Name "minimal-application" `
+            -Lines @(
+                "@{",
+                "    ValidationApplications = @('nginx-web')",
+                "    ValidationDataServices = @()",
+                "}"
+            )
+        New-TestPlatformAssetsRecorder -Root $testRoot
+        $env:RENDER_MATRIX_ASSET_LOG = $logPath
+
+        try {
+            & $renderMatrixValidation `
+                -RepoRoot $testRoot 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            $failed = $true
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "Render matrix values file was not found for environment 'dev'" `
+                -Message "The failure should identify the environment entry with missing validation values."
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected (Resolve-RenderMatrixRepoPath -Root $testRoot -Path $missingValuesFile) `
+                -Message "The failure should include the resolved missing values file path."
+        }
+
+        Assert-True -Condition $failed -Message "Render matrix validation should fail on missing environment validation values."
+        Assert-False -Condition (Test-Path -LiteralPath $logPath) -Message "Asset validation should not run after a missing matrix values file is detected."
+    }
+    finally {
+        Remove-Item Env:RENDER_MATRIX_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
 }
 
 Invoke-Test -Name "Strict platform asset validation promotes selection warnings before rendering" -Body {
