@@ -38,7 +38,11 @@ $environmentPresetData = Get-EnvironmentPresetData `
     -EnvironmentPreset $EnvironmentPreset `
     -EnvironmentPresetFile $EnvironmentPresetFile
 
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ValuesFile" -Target ([ref]$ValuesFile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "ValuesFile" `
+    -Target ([ref]$ValuesFile)
 if (
     -not $PSBoundParameters.ContainsKey("ValuesFile") -and
     $environmentPresetData -and
@@ -46,21 +50,91 @@ if (
 ) {
     $ValuesFile = $environmentPresetData["ValidationValuesFile"]
 }
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RenderedPath" -Target ([ref]$RenderedPath)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "HelmConfigFile" -Target ([ref]$HelmConfigFile)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DockerRegistry" -Target ([ref]$DockerRegistry)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Version" -Target ([ref]$Version)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Profile" -Target ([ref]$Profile)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Applications" -Target ([ref]$Applications) -AsList
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DataServices" -Target ([ref]$DataServices) -AsList
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "IncludeJenkins" -Target ([ref]$IncludeJenkins) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "PrepareHelmRepos" -Target ([ref]$PrepareHelmRepos) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Strict" -Target ([ref]$Strict) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ValidateCrdBackedResources" -Target ([ref]$ValidateCrdBackedResources) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RequireBootstrapSecretsReady" -Target ([ref]$RequireBootstrapSecretsReady) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipTemplateValidation" -Target ([ref]$SkipTemplateValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipWorkstationValidation" -Target ([ref]$SkipWorkstationValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipPlatformAssetValidation" -Target ([ref]$SkipPlatformAssetValidation) -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RenderedPath" `
+    -Target ([ref]$RenderedPath)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "HelmConfigFile" `
+    -Target ([ref]$HelmConfigFile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DockerRegistry" `
+    -Target ([ref]$DockerRegistry)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Version" `
+    -Target ([ref]$Version)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Profile" `
+    -Target ([ref]$Profile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Applications" `
+    -Target ([ref]$Applications) `
+    -AsList
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DataServices" `
+    -Target ([ref]$DataServices) `
+    -AsList
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "IncludeJenkins" `
+    -Target ([ref]$IncludeJenkins) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "PrepareHelmRepos" `
+    -Target ([ref]$PrepareHelmRepos) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Strict" `
+    -Target ([ref]$Strict) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "ValidateCrdBackedResources" `
+    -Target ([ref]$ValidateCrdBackedResources) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RequireBootstrapSecretsReady" `
+    -Target ([ref]$RequireBootstrapSecretsReady) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipTemplateValidation" `
+    -Target ([ref]$SkipTemplateValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipWorkstationValidation" `
+    -Target ([ref]$SkipWorkstationValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipPlatformAssetValidation" `
+    -Target ([ref]$SkipPlatformAssetValidation) `
+    -AsSwitch
 
 if (-not $ValuesFile) {
     $ValuesFile = "config\platform-values.env.example"

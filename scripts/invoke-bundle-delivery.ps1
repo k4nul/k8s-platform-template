@@ -45,29 +45,137 @@ $environmentPresetData = Get-EnvironmentPresetData `
     -EnvironmentPreset $EnvironmentPreset `
     -EnvironmentPresetFile $EnvironmentPresetFile
 
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "OutputPath" -Target ([ref]$OutputPath)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ValuesFile" -Target ([ref]$ValuesFile)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "HelmConfigFile" -Target ([ref]$HelmConfigFile)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ArchivePath" -Target ([ref]$ArchivePath)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DockerRegistry" -Target ([ref]$DockerRegistry)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Version" -Target ([ref]$Version)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Profile" -Target ([ref]$Profile)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "Applications" -Target ([ref]$Applications) -AsList
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DataServices" -Target ([ref]$DataServices) -AsList
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "IncludeJenkins" -Target ([ref]$IncludeJenkins) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "PrepareHelmRepos" -Target ([ref]$PrepareHelmRepos) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "IncludeDeferredComponents" -Target ([ref]$IncludeDeferredComponents) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RequireBootstrapSecretsReady" -Target ([ref]$RequireBootstrapSecretsReady) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RequireBootstrapStatus" -Target ([ref]$RequireBootstrapStatus) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "CleanOutput" -Target ([ref]$CleanOutput) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "OverwriteArchive" -Target ([ref]$OverwriteArchive) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipRepositoryValidation" -Target ([ref]$SkipRepositoryValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipTemplateValidation" -Target ([ref]$SkipTemplateValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipWorkstationValidation" -Target ([ref]$SkipWorkstationValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipBundleValidation" -Target ([ref]$SkipBundleValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipArchive" -Target ([ref]$SkipArchive) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DeployBundle" -Target ([ref]$DeployBundle) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DeploymentDryRun" -Target ([ref]$DeploymentDryRun) -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "OutputPath" `
+    -Target ([ref]$OutputPath)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "ValuesFile" `
+    -Target ([ref]$ValuesFile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "HelmConfigFile" `
+    -Target ([ref]$HelmConfigFile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "ArchivePath" `
+    -Target ([ref]$ArchivePath)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DockerRegistry" `
+    -Target ([ref]$DockerRegistry)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Version" `
+    -Target ([ref]$Version)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Profile" `
+    -Target ([ref]$Profile)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "Applications" `
+    -Target ([ref]$Applications) `
+    -AsList
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DataServices" `
+    -Target ([ref]$DataServices) `
+    -AsList
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "IncludeJenkins" `
+    -Target ([ref]$IncludeJenkins) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "PrepareHelmRepos" `
+    -Target ([ref]$PrepareHelmRepos) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "IncludeDeferredComponents" `
+    -Target ([ref]$IncludeDeferredComponents) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RequireBootstrapSecretsReady" `
+    -Target ([ref]$RequireBootstrapSecretsReady) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RequireBootstrapStatus" `
+    -Target ([ref]$RequireBootstrapStatus) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "CleanOutput" `
+    -Target ([ref]$CleanOutput) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "OverwriteArchive" `
+    -Target ([ref]$OverwriteArchive) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipRepositoryValidation" `
+    -Target ([ref]$SkipRepositoryValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipTemplateValidation" `
+    -Target ([ref]$SkipTemplateValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipWorkstationValidation" `
+    -Target ([ref]$SkipWorkstationValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipBundleValidation" `
+    -Target ([ref]$SkipBundleValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipArchive" `
+    -Target ([ref]$SkipArchive) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DeployBundle" `
+    -Target ([ref]$DeployBundle) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DeploymentDryRun" `
+    -Target ([ref]$DeploymentDryRun) `
+    -AsSwitch
 
 if (-not $OutputPath) {
     throw "-OutputPath is required unless it is provided by the selected environment preset."
@@ -111,7 +219,10 @@ if (Test-Path -Path $resolvedOutputPath) {
     $existingOutputEntries = @(Get-ChildItem -Path $resolvedOutputPath -Force)
     if ($existingOutputEntries.Count -gt 0) {
         if (-not $CleanOutput) {
-            throw ("Output path already exists and is not empty: {0}. Re-run with -CleanOutput to replace it." -f $resolvedOutputPath)
+            throw (
+                "Output path already exists and is not empty: {0}. Re-run with -CleanOutput to replace it." -f
+                $resolvedOutputPath
+            )
         }
 
         Remove-Item -LiteralPath $resolvedOutputPath -Recurse -Force

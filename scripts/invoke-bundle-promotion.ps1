@@ -45,7 +45,11 @@ function Resolve-ExtractedBundleRoot {
     )
 
     if ($uniqueBundleRoots.Count -ne 1) {
-        throw ("Expected exactly one extracted bundle root under {0}, but found {1}." -f $ExtractRoot, $uniqueBundleRoots.Count)
+        throw (
+            "Expected exactly one extracted bundle root under {0}, but found {1}." -f
+            $ExtractRoot,
+            $uniqueBundleRoots.Count
+        )
     }
 
     return $uniqueBundleRoots[0]
@@ -61,15 +65,59 @@ $environmentPresetData = Get-EnvironmentPresetData `
     -EnvironmentPreset $EnvironmentPreset `
     -EnvironmentPresetFile $EnvironmentPresetFile
 
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "ArchivePath" -Target ([ref]$ArchivePath)
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "PrepareHelmRepos" -Target ([ref]$PrepareHelmRepos) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "IncludeDeferredComponents" -Target ([ref]$IncludeDeferredComponents) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RequireBootstrapSecretsReady" -Target ([ref]$RequireBootstrapSecretsReady) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "RequireBootstrapStatus" -Target ([ref]$RequireBootstrapStatus) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "SkipBundleValidation" -Target ([ref]$SkipBundleValidation) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DeployBundle" -Target ([ref]$DeployBundle) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "DeploymentDryRun" -Target ([ref]$DeploymentDryRun) -AsSwitch
-Set-ValueFromEnvironmentPreset -Preset $environmentPresetData -BoundParameters $PSBoundParameters -Key "CleanExtractPath" -Target ([ref]$CleanExtractPath) -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "ArchivePath" `
+    -Target ([ref]$ArchivePath)
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "PrepareHelmRepos" `
+    -Target ([ref]$PrepareHelmRepos) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "IncludeDeferredComponents" `
+    -Target ([ref]$IncludeDeferredComponents) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RequireBootstrapSecretsReady" `
+    -Target ([ref]$RequireBootstrapSecretsReady) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "RequireBootstrapStatus" `
+    -Target ([ref]$RequireBootstrapStatus) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "SkipBundleValidation" `
+    -Target ([ref]$SkipBundleValidation) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DeployBundle" `
+    -Target ([ref]$DeployBundle) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "DeploymentDryRun" `
+    -Target ([ref]$DeploymentDryRun) `
+    -AsSwitch
+Set-ValueFromEnvironmentPreset `
+    -Preset $environmentPresetData `
+    -BoundParameters $PSBoundParameters `
+    -Key "CleanExtractPath" `
+    -Target ([ref]$CleanExtractPath) `
+    -AsSwitch
 
 if (-not $PSBoundParameters.ContainsKey("ExtractPath") -and -not $ExtractPath -and $environmentPresetData) {
     if ($environmentPresetData.ContainsKey("PromotionExtractPath")) {
@@ -107,7 +155,10 @@ if (Test-Path -Path $resolvedExtractPath) {
     $existingExtractEntries = @(Get-ChildItem -Path $resolvedExtractPath -Force)
     if ($existingExtractEntries.Count -gt 0) {
         if (-not $CleanExtractPath) {
-            throw ("Extract path already exists and is not empty: {0}. Re-run with -CleanExtractPath to replace it." -f $resolvedExtractPath)
+            throw (
+                "Extract path already exists and is not empty: {0}. Re-run with -CleanExtractPath to replace it." -f
+                $resolvedExtractPath
+            )
         }
 
         Remove-Item -LiteralPath $resolvedExtractPath -Recurse -Force
