@@ -6,8 +6,8 @@ This guide focuses on validation and render issues that can appear before a bund
 
 If the shell reports that `pwsh` is not found, install PowerShell 7 or run the scripts from Windows PowerShell on Windows. The phase gate and maintainer validation command use:
 
-```powershell
-pwsh -NoProfile -File scripts/validate-template.ps1
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
 Automation shells that do not load an interactive profile may need `$HOME/.local/bin`
@@ -16,6 +16,11 @@ tool directory so a local PowerShell install is still discoverable without
 hardcoding a workstation-specific path.
 
 After PowerShell is available, rerun the same command from the repository root.
+Interactive shells that already resolve `pwsh` can use the shorter local form:
+
+```powershell
+.\scripts\validate-template.ps1
+```
 
 ## Template Validation Warns About Missing Kubernetes Tools
 

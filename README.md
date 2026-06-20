@@ -87,6 +87,18 @@ If this is your first visit, follow this order:
 
 See [docs/testing.md](docs/testing.md) for the profile and environment render matrix, schema validator behavior, and security baseline checks behind this command.
 If validation fails because local tools are missing, use [docs/troubleshooting.md](docs/troubleshooting.md) to separate template issues from workstation readiness issues.
+Automation and non-interactive shells should use the phase-gate form when
+`pwsh` is installed under a user-local path:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+```
+
+When that phase-gate command passes and the phase controller reports
+`public-default-security-review->template-maintenance` as eligible, the next
+maintenance step is a dedicated `phase-transition` run. Do not add private
+image defaults, live cluster requirements, or committed rendered bundles only to
+clear a stale dashboard status after this gate is green.
 Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Inspect the same public matrix before changing profiles or presets:
 
 ```powershell

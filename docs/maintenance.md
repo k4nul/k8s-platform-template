@@ -1,8 +1,9 @@
 # Template Maintenance
 
-This guide is for maintainers working through the active
-`public-default-security-review` phase and returning the public Kubernetes
-platform template to `template-maintenance`. Use it when a dashboard, scheduled
+This guide is for maintainers working through the phase currently recorded in
+`docs/instructions/phase-gates.json`. In the current manifest, that is the
+`public-default-security-review` phase returning the public Kubernetes platform
+template to `template-maintenance`. Use it when a dashboard, scheduled
 automation, or reviewer reports that Kubernetes validation is failing and you
 need to separate a template regression from local workstation readiness.
 
@@ -114,9 +115,8 @@ manifest or documentation repair. Treat that state as a phase handoff:
 
 - keep the validation output from the passing
   `scripts/validate-template.ps1` run as the evidence package
-- confirm `docs/instructions/phase-gates.json` still lists
-  `public-default-security-review` as `current_phase` and
-  `template-maintenance` as `next_phase`
+- confirm `docs/instructions/phase-gates.json` still lists the expected
+  `current_phase`, `next_phase`, and `transition.phase_update_files`
 - run the next automated task as `phase-transition`, not another broad
   implementation or docs task
 - limit the transition patch to the files listed in

@@ -104,7 +104,7 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 
 | Layer | Command | What it proves |
 | --- | --- | --- |
-| Template gate | `.\scripts\validate-template.ps1` | Required repository files exist, catalog tests pass, the source Kubernetes baseline has no high-severity default findings, one public smoke bundle renders, rendered assets validate non-strictly, and the public-default render matrix completes |
+| Template gate | `.\scripts\validate-template.ps1` | Required repository files exist, catalog tests pass, the source Kubernetes baseline has no high-severity default findings, one public smoke bundle renders, external schema validation can run non-strictly when tools are missing, high-severity rendered security findings fail, and the public-default render matrix completes |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile <profile> -Format markdown` | The selected bundle's tool requirements, CRD-backed resource notes, Helm needs, and recommended validation command for this workstation |
 | Repository workflow | `.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev` | Template validation, strict workstation validation, and rendered bundle validation for one environment preset |
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
@@ -257,7 +257,7 @@ inventory of every rendered source directory.
 Optional follow-up manifests are intentionally excluded from generated bundles
 during matrix validation. The source files remain available for manual review,
 but public-default renders should not package optional follow-up resources such
-as the Kubernetes Dashboard viewer.
+as the Kubernetes Dashboard admin and viewer RBAC samples.
 
 ## Rendered Manifest Schema Validation
 
@@ -307,9 +307,9 @@ supports `-FailOnHighFinding` and `-FailOnMediumFinding`. Use the medium-finding
 gate only for a deliberately hardened rendered bundle, because the public
 template may still report review items that need environment-specific decisions.
 Repository scans skip cataloged optional manual follow-up manifests, such as
-dashboard admin examples, because those files are intentionally excluded from
-generated bundles. Add `-IncludeOptionalManifests` when the review scope is the
-manual examples themselves.
+Dashboard admin and viewer RBAC samples, because those files are intentionally
+excluded from generated bundles. Add `-IncludeOptionalManifests` when the review
+scope is the manual examples themselves.
 
 ## Bootstrap Secret Readiness
 
