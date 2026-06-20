@@ -43,6 +43,33 @@ $securityBaselineValidationScript = Join-Path $root "scripts\validate-kubernetes
 $validateHelmScript = Join-Path $root "scripts\validate-helm-values.ps1"
 $createdTempOutput = $false
 
+function Resolve-PowerShellHostCommand {
+    $currentProcessPath = ""
+
+    try {
+        $currentProcess = Get-Process -Id $PID -ErrorAction Stop
+        if ($currentProcess.Path) {
+            $currentProcessPath = [string]$currentProcess.Path
+        }
+    }
+    catch {
+        $currentProcessPath = ""
+    }
+
+    if ($currentProcessPath -and (Test-Path -LiteralPath $currentProcessPath -PathType Leaf)) {
+        return $currentProcessPath
+    }
+
+    foreach ($candidate in @("pwsh", "powershell")) {
+        $command = Get-Command -Name $candidate -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command -and $command.Source) {
+            return [string]$command.Source
+        }
+    }
+
+    throw "PowerShell host was not found. Install PowerShell 7 or expose pwsh or powershell on PATH before running bootstrap secret readiness validation."
+}
+
 & $platformValuesValidationScript `
     -RepoRoot $root `
     -ValuesFile $ValuesFile `
@@ -88,7 +115,8 @@ try {
             throw ("Bootstrap placeholder check script not found: {0}" -f $bootstrapCheckScript)
         }
 
-        $bootstrapCheckOutput = (& powershell -NoProfile -ExecutionPolicy Bypass -File $bootstrapCheckScript -BundleRoot $RenderedPath -FailOnMatch 2>&1 | Out-String)
+        $bootstrapPowerShellHost = Resolve-PowerShellHostCommand
+        $bootstrapCheckOutput = (& $bootstrapPowerShellHost -NoProfile -ExecutionPolicy Bypass -File $bootstrapCheckScript -BundleRoot $RenderedPath -FailOnMatch 2>&1 | Out-String)
         if ($LASTEXITCODE -ne 0) {
             throw ("Bootstrap secret placeholder validation failed.`n{0}" -f $bootstrapCheckOutput.Trim())
         }

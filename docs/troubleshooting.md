@@ -179,4 +179,9 @@ Edit generated bootstrap secret templates before applying them. Do not commit re
 
 ## Bootstrap Secret Readiness On Non-Windows Hosts
 
-`validate-platform-assets.ps1 -RequireBootstrapSecretsReady` expects the generated bootstrap check helper to be runnable. If a non-Windows workstation lacks the `powershell` executable used by that generated check path, run the generated `cluster-bootstrap\check-secret-templates.ps1` directly with the PowerShell host available on the machine, then record that validation separately.
+`validate-platform-assets.ps1 -RequireBootstrapSecretsReady` expects the
+generated bootstrap check helper to be runnable. The repository validation
+script invokes that helper with the current PowerShell host when available,
+then falls back to `pwsh` or `powershell` on `PATH`. If neither host is
+discoverable, install PowerShell 7 or expose the available host on `PATH`, then
+rerun the same validation command.

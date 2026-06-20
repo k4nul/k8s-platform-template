@@ -16,6 +16,18 @@ function Assert-Contains {
     }
 }
 
+function Assert-NotContains {
+    param(
+        [string]$Content,
+        [string]$Expected,
+        [string]$Message
+    )
+
+    if ($Content.Contains($Expected)) {
+        throw ("{0} Did not expect to find '{1}'." -f $Message, $Expected)
+    }
+}
+
 function Assert-Equal {
     param(
         [object]$Expected,
@@ -78,6 +90,29 @@ Invoke-Test -Name "Delivery and validation forward custom Helm config into rende
         -Content $assetValidationScriptContent `
         -Expected '-HelmConfigFile $HelmConfigFile' `
         -Message "Platform asset validation should render temporary bundles with the requested Helm config."
+}
+
+Invoke-Test -Name "Platform asset validation resolves bootstrap secret PowerShell host" -Body {
+    Assert-Contains `
+        -Content $assetValidationScriptContent `
+        -Expected 'function Resolve-PowerShellHostCommand' `
+        -Message "Platform asset validation should centralize PowerShell host resolution."
+    Assert-Contains `
+        -Content $assetValidationScriptContent `
+        -Expected 'Get-Command -Name $candidate -CommandType Application' `
+        -Message "Bootstrap secret readiness should fall back to pwsh or powershell on PATH."
+    Assert-Contains `
+        -Content $assetValidationScriptContent `
+        -Expected '$bootstrapPowerShellHost = Resolve-PowerShellHostCommand' `
+        -Message "Bootstrap secret readiness should resolve the host before invoking the generated helper."
+    Assert-Contains `
+        -Content $assetValidationScriptContent `
+        -Expected '& $bootstrapPowerShellHost -NoProfile -ExecutionPolicy Bypass -File $bootstrapCheckScript' `
+        -Message "Bootstrap secret readiness should invoke the generated helper through the resolved host."
+    Assert-NotContains `
+        -Content $assetValidationScriptContent `
+        -Expected '& powershell -NoProfile -ExecutionPolicy Bypass -File $bootstrapCheckScript' `
+        -Message "Bootstrap secret readiness should not hardcode Windows PowerShell."
 }
 
 Invoke-Test -Name "Template validation forwards rendered schema and high security gates" -Body {
