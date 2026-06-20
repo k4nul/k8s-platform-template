@@ -26,6 +26,109 @@ function Get-ListText {
     return "none"
 }
 
+function Get-CatalogMap {
+    param(
+        [object[]]$Items
+    )
+
+    $map = [ordered]@{}
+    foreach ($item in @($Items | Sort-Object Name)) {
+        $map[$item.Name] = $item
+    }
+
+    return $map
+}
+
+function Get-OptionalCatalogValue {
+    param(
+        [object]$Item,
+        [string]$Name
+    )
+
+    if ($null -eq $Item) {
+        return ""
+    }
+
+    if ($Item -is [System.Collections.IDictionary]) {
+        if ($Item.Contains($Name) -and $Item[$Name]) {
+            return [string]$Item[$Name]
+        }
+
+        return ""
+    }
+
+    $property = $Item.PSObject.Properties[$Name]
+    if ($null -ne $property -and $property.Value) {
+        return [string]$property.Value
+    }
+
+    return ""
+}
+
+function Get-ImageProvenanceStatus {
+    param(
+        [string]$BuildPublicImage,
+        [string]$RuntimePublicImage
+    )
+
+    if (-not $BuildPublicImage -and -not $RuntimePublicImage) {
+        return "missing"
+    }
+
+    if ($BuildPublicImage -and $RuntimePublicImage -and $BuildPublicImage -ne $RuntimePublicImage) {
+        return "mismatch"
+    }
+
+    if ($BuildPublicImage -and $RuntimePublicImage) {
+        return "catalog-aligned"
+    }
+
+    return "partial"
+}
+
+function Get-HelmChartSourceType {
+    param(
+        [object]$Release
+    )
+
+    $chart = Get-OptionalCatalogValue -Item $Release -Name "Chart"
+    $repoName = Get-OptionalCatalogValue -Item $Release -Name "RepoName"
+    $repoUrl = Get-OptionalCatalogValue -Item $Release -Name "RepoUrl"
+
+    if (-not $chart) {
+        return "not-configured"
+    }
+
+    if ($chart.StartsWith("oci://", [System.StringComparison]::OrdinalIgnoreCase)) {
+        return "oci"
+    }
+
+    if ($repoName -and $repoUrl) {
+        return "helm-repo"
+    }
+
+    return "missing-source"
+}
+
+function Get-HelmVersionPinStatus {
+    param(
+        [object]$Release
+    )
+
+    $chart = Get-OptionalCatalogValue -Item $Release -Name "Chart"
+    $chartVersion = Get-OptionalCatalogValue -Item $Release -Name "ChartVersion"
+
+    if (-not $chart) {
+        return "not-configured"
+    }
+
+    if ($chartVersion) {
+        return "pinned"
+    }
+
+    return "unpinned"
+}
+
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
 }
@@ -33,12 +136,14 @@ if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
 $root = (Resolve-Path -Path $RepoRoot).Path
 $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
 $dependencyCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-dependencies.psd1")
+$serviceBuildCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-builds.psd1")
+$serviceRuntimeCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\service-runtime-bindings.psd1")
+$helmReleaseCatalog = Import-PowerShellDataFile -Path (Join-Path $root "config\helm-releases.psd1")
 $dataServiceCatalog = Get-PlatformDataServiceCatalog
 
-$dependencyMap = [ordered]@{}
-foreach ($service in @($dependencyCatalog.Services | Sort-Object Name)) {
-    $dependencyMap[$service.Name] = $service
-}
+$dependencyMap = Get-CatalogMap -Items $dependencyCatalog.Services
+$serviceBuildMap = Get-CatalogMap -Items $serviceBuildCatalog.Services
+$serviceRuntimeMap = Get-CatalogMap -Items $serviceRuntimeCatalog.Services
 
 $effectiveK8sDirectories = Get-EffectiveK8sDirectories -Root $root -Selection $selection
 $effectiveServiceDirectories = Get-EffectiveServiceDirectories -Root $root -Selection $selection
@@ -59,6 +164,10 @@ foreach ($serviceName in $effectiveServiceDirectories) {
             Name = $serviceName
             Status = "uncatalogued"
             Notes = "No service dependency catalog entry is defined yet."
+            BuildProfile = ""
+            BuildPublicImage = ""
+            RuntimePublicImage = ""
+            ImageProvenanceStatus = "uncatalogued"
             RequiredK8sDirectories = @()
             MissingRequiredK8sDirectories = @()
             RecommendedK8sDirectories = @()
@@ -78,6 +187,12 @@ foreach ($serviceName in $effectiveServiceDirectories) {
     $recommendedK8sDirectories = @($definition.RecommendedK8sDirectories | Sort-Object -Unique)
     $compatibleDataServices = @($definition.CompatibleDataServices | Sort-Object -Unique)
     $relatedApplications = @($definition.RelatedApplications | Sort-Object -Unique)
+    $buildDefinition = if ($serviceBuildMap.Contains($serviceName)) { $serviceBuildMap[$serviceName] } else { $null }
+    $runtimeDefinition = if ($serviceRuntimeMap.Contains($serviceName)) { $serviceRuntimeMap[$serviceName] } else { $null }
+    $buildProfile = Get-OptionalCatalogValue -Item $buildDefinition -Name "BuildProfile"
+    $buildPublicImage = Get-OptionalCatalogValue -Item $buildDefinition -Name "PublicImage"
+    $runtimePublicImage = Get-OptionalCatalogValue -Item $runtimeDefinition -Name "PublicImage"
+    $imageProvenanceStatus = Get-ImageProvenanceStatus -BuildPublicImage $buildPublicImage -RuntimePublicImage $runtimePublicImage
 
     $missingRequiredK8sDirectories = @($requiredK8sDirectories | Where-Object { $effectiveK8sDirectories -notcontains $_ })
     $missingRecommendedK8sDirectories = @($recommendedK8sDirectories | Where-Object { $effectiveK8sDirectories -notcontains $_ })
@@ -111,6 +226,10 @@ foreach ($serviceName in $effectiveServiceDirectories) {
         Name = $serviceName
         Status = $status
         Notes = $definition.Notes
+        BuildProfile = $buildProfile
+        BuildPublicImage = $buildPublicImage
+        RuntimePublicImage = $runtimePublicImage
+        ImageProvenanceStatus = $imageProvenanceStatus
         RequiredK8sDirectories = @($requiredK8sDirectories)
         MissingRequiredK8sDirectories = @($missingRequiredK8sDirectories)
         RecommendedK8sDirectories = @($recommendedK8sDirectories)
@@ -124,10 +243,36 @@ foreach ($serviceName in $effectiveServiceDirectories) {
     }
 }
 
+$helmRecords = @()
+foreach ($release in @($helmReleaseCatalog.Releases | Sort-Object Name)) {
+    if ($effectiveK8sDirectories -notcontains $release.K8sDirectory) {
+        continue
+    }
+
+    $chart = Get-OptionalCatalogValue -Item $release -Name "Chart"
+    $repoName = Get-OptionalCatalogValue -Item $release -Name "RepoName"
+    $repoUrl = Get-OptionalCatalogValue -Item $release -Name "RepoUrl"
+    $notes = Get-OptionalCatalogValue -Item $release -Name "Notes"
+
+    $helmRecords += [PSCustomObject]@{
+        Name = $release.Name
+        Enabled = [bool]$release.Enabled
+        Namespace = $release.Namespace
+        K8sDirectory = $release.K8sDirectory
+        Chart = $chart
+        RepoName = $repoName
+        RepoUrl = $repoUrl
+        ChartSourceType = Get-HelmChartSourceType -Release $release
+        VersionPinStatus = Get-HelmVersionPinStatus -Release $release
+        Notes = $notes
+    }
+}
+
 $applicationsText = Get-ListText -Values $selection.Applications
 $explicitDataServicesText = Get-ListText -Values $selection.DataServices
 $effectiveDataServicesText = Get-ListText -Values $effectiveDataServices
 $serviceDirectoriesText = Get-ListText -Values $effectiveServiceDirectories
+$helmComponentsText = Get-ListText -Values @($helmRecords | ForEach-Object { $_.Name })
 $statusSummaryText = "ready={0}, attention={1}, error={2}, uncatalogued={3}" -f `
     $statusCounts.ready,
     $statusCounts.attention,
@@ -147,6 +292,7 @@ switch ($Format) {
             ServiceDirectories = @($effectiveServiceDirectories)
             StatusCounts = $statusCounts
             Services = @($serviceRecords)
+            HelmReleases = @($helmRecords)
         } | ConvertTo-Json -Depth 10)
     }
     "markdown" {
@@ -161,6 +307,7 @@ switch ($Format) {
             ("- Explicit data services: " + $explicitDataServicesText),
             ("- Effective in-cluster data services: " + $effectiveDataServicesText),
             ("- Service templates in scope: " + $serviceDirectoriesText),
+            ("- Helm components in scope: " + $helmComponentsText),
             ("- Status counts: " + $statusSummaryText),
             ""
         )
@@ -173,6 +320,10 @@ switch ($Format) {
                 $lines += ""
                 $lines += ("- Status: " + $service.Status)
                 $lines += ("- Notes: " + $service.Notes)
+                $lines += ("- Build profile: " + $(if ($service.BuildProfile) { $service.BuildProfile } else { "not cataloged" }))
+                $lines += ("- Build public image: " + $(if ($service.BuildPublicImage) { $service.BuildPublicImage } else { "not cataloged" }))
+                $lines += ("- Runtime public image: " + $(if ($service.RuntimePublicImage) { $service.RuntimePublicImage } else { "not cataloged" }))
+                $lines += ("- Image provenance status: " + $service.ImageProvenanceStatus)
                 $lines += ("- Required Kubernetes prerequisites: " + (Get-ListText -Values $service.RequiredK8sDirectories))
                 $lines += ("- Missing required Kubernetes prerequisites: " + (Get-ListText -Values $service.MissingRequiredK8sDirectories))
                 $lines += ("- Recommended Kubernetes add-ons: " + (Get-ListText -Values $service.RecommendedK8sDirectories))
@@ -183,6 +334,28 @@ switch ($Format) {
                 $lines += ("- Related applications: " + (Get-ListText -Values $service.RelatedApplications))
                 $lines += ("- Related applications currently selected: " + (Get-ListText -Values $service.SelectedRelatedApplications))
                 $lines += ("- Missing related applications: " + (Get-ListText -Values $service.MissingRelatedApplications))
+                $lines += ""
+            }
+        }
+
+        if ($helmRecords.Count -gt 0) {
+            $lines += "## Helm Dependency Details"
+            $lines += ""
+            foreach ($release in $helmRecords) {
+                $chart = if ($release.Chart) { $release.Chart } else { "not configured" }
+                $repo = if ($release.RepoUrl) { $release.RepoUrl } else { "not configured" }
+                $lines += ("### " + $release.Name)
+                $lines += ""
+                $lines += ("- Enabled: " + [string]$release.Enabled)
+                $lines += ("- Namespace: " + $release.Namespace)
+                $lines += ("- Kubernetes directory: " + $release.K8sDirectory)
+                $lines += ("- Chart: " + $chart)
+                $lines += ("- Repository: " + $repo)
+                $lines += ("- Chart source type: " + $release.ChartSourceType)
+                $lines += ("- Version pin status: " + $release.VersionPinStatus)
+                if ($release.Notes) {
+                    $lines += ("- Notes: " + $release.Notes)
+                }
                 $lines += ""
             }
         }
@@ -199,6 +372,7 @@ switch ($Format) {
             ("Explicit data services: " + $explicitDataServicesText),
             ("Effective in-cluster data services: " + $effectiveDataServicesText),
             ("Service templates in scope: " + $serviceDirectoriesText),
+            ("Helm components in scope: " + $helmComponentsText),
             ("Status counts: " + $statusSummaryText),
             ""
         )
@@ -207,6 +381,10 @@ switch ($Format) {
             $lines += $service.Name
             $lines += ("  Status: " + $service.Status)
             $lines += ("  Notes: " + $service.Notes)
+            $lines += ("  Build profile: " + $(if ($service.BuildProfile) { $service.BuildProfile } else { "not cataloged" }))
+            $lines += ("  Build public image: " + $(if ($service.BuildPublicImage) { $service.BuildPublicImage } else { "not cataloged" }))
+            $lines += ("  Runtime public image: " + $(if ($service.RuntimePublicImage) { $service.RuntimePublicImage } else { "not cataloged" }))
+            $lines += ("  Image provenance status: " + $service.ImageProvenanceStatus)
             $lines += ("  Required Kubernetes prerequisites: " + (Get-ListText -Values $service.RequiredK8sDirectories))
             $lines += ("  Missing required Kubernetes prerequisites: " + (Get-ListText -Values $service.MissingRequiredK8sDirectories))
             $lines += ("  Recommended Kubernetes add-ons: " + (Get-ListText -Values $service.RecommendedK8sDirectories))
@@ -222,6 +400,27 @@ switch ($Format) {
 
         if ($serviceRecords.Count -eq 0) {
             $lines += "No services selected."
+        }
+
+        if ($helmRecords.Count -gt 0) {
+            $lines += ""
+            $lines += "Helm dependency details"
+            foreach ($release in $helmRecords) {
+                $chart = if ($release.Chart) { $release.Chart } else { "not configured" }
+                $repo = if ($release.RepoUrl) { $release.RepoUrl } else { "not configured" }
+                $lines += $release.Name
+                $lines += ("  Enabled: " + [string]$release.Enabled)
+                $lines += ("  Namespace: " + $release.Namespace)
+                $lines += ("  Kubernetes directory: " + $release.K8sDirectory)
+                $lines += ("  Chart: " + $chart)
+                $lines += ("  Repository: " + $repo)
+                $lines += ("  Chart source type: " + $release.ChartSourceType)
+                $lines += ("  Version pin status: " + $release.VersionPinStatus)
+                if ($release.Notes) {
+                    $lines += ("  Notes: " + $release.Notes)
+                }
+                $lines += ""
+            }
         }
 
         $document = $lines -join [Environment]::NewLine
