@@ -110,6 +110,29 @@ For automation reports, record the first failing command, whether the template
 gate passed, and whether the readiness report lists a missing grouped
 requirement such as `kubeconform or kubectl`.
 
+Use this evidence bundle when a maintainer needs to decide whether the dashboard
+row is a real template regression, a workstation blocker, or stale status:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+pwsh -NoProfile -File scripts/show-render-matrix.ps1 -Format markdown
+pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format json
+pwsh -NoProfile -File scripts/validate-workstation.ps1 -Strict
+pwsh -NoProfile -File scripts/invoke-repository-validation.ps1 -EnvironmentPreset dev
+```
+
+Record these facts beside the dashboard row:
+
+- the exact first failing command, or that all commands passed
+- whether `scripts/validate-template.ps1` printed `Template validation completed.`
+- the `current_phase`, `next_phase`, and
+  `transition.transition_validation_command` values from
+  `docs/instructions/phase-gates.json`
+- the readiness JSON fields `MissingRequiredToolRequirements`,
+  `SchemaValidatorRequirement`, and `HelmRequirement`
+- whether any failure names a public-default profile, environment preset,
+  manifest source file, or only a missing workstation tool
+
 When the template maintenance gate passes and the manifest has no pending
 `next_phase`, the remaining dashboard work is not another manifest or
 documentation repair. Treat that state as maintenance evidence:

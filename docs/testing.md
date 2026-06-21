@@ -172,8 +172,10 @@ env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-templat
 That command remains the machine-readable maintenance validation command in
 `docs/instructions/phase-gates.json`. It proves the public-default render,
 schema-validation, and security-baseline paths that allowed the project to move
-to `template-maintenance`, and it is also the transition validation command for
-the active `public-default-security-review` phase.
+to `template-maintenance`. It was the handoff evidence for the completed
+`public-default-security-review` work; in the current `template-maintenance`
+phase, `next_phase` and `transition.transition_validation_command` are empty
+until a maintainer selects a new explicit phase.
 
 The maintenance gate currently covers:
 

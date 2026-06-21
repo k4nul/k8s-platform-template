@@ -86,6 +86,25 @@ inspect `docs/instructions/phase-gates.json`. In `template-maintenance` with no
 pending `next_phase`, do not change manifests, values files, or rendered bundles
 only to clear a stale dashboard status after this gate is green.
 
+For a dashboard or automation report, capture a compact evidence package before
+deciding the fix scope:
+
+```bash
+env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
+pwsh -NoProfile -File scripts/show-render-matrix.ps1 -Format markdown
+pwsh -NoProfile -File scripts/show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format json
+pwsh -NoProfile -File scripts/validate-workstation.ps1 -Strict
+pwsh -NoProfile -File scripts/invoke-repository-validation.ps1 -EnvironmentPreset dev
+```
+
+Then record the phase fields from `docs/instructions/phase-gates.json`:
+`current_phase`, `next_phase`, and
+`transition.transition_validation_command`. If the template gate passes,
+`current_phase` is `template-maintenance`, `next_phase` is empty, and no later
+command points to a public-default manifest or matrix entry, treat the
+dashboard message as stale or workstation-specific instead of changing template
+manifests.
+
 In JSON mode, the readiness report includes `MissingRequiredToolRequirements`,
 `SchemaValidatorRequirement`, and `HelmRequirement`. Use those grouped fields
 when automation needs to distinguish the alternative schema-validator
