@@ -101,9 +101,21 @@ Invoke-Test -Name "Dependency JSON exposes Helm source and version-pin status" -
         -Actual $releaseMap["harbor"].VersionPinStatus `
         -Message "Enabled chart references without ChartVersion should be flagged as unpinned."
     Assert-Equal `
+        -Expected "k8s\307_platform_harbor\values.yaml" `
+        -Actual $releaseMap["harbor"].ValuesRelativePath `
+        -Message "Helm dependency output should expose the local values file path."
+    Assert-Equal `
+        -Expected "present" `
+        -Actual $releaseMap["harbor"].ValuesFileStatus `
+        -Message "Helm dependency output should verify that local values files exist."
+    Assert-Equal `
         -Expected "not-configured" `
         -Actual $releaseMap["vertical-pod-autoscaler"].VersionPinStatus `
         -Message "Disabled scaffold chart references should remain not configured."
+    Assert-Equal `
+        -Expected "present" `
+        -Actual $releaseMap["vertical-pod-autoscaler"].ValuesFileStatus `
+        -Message "Disabled scaffold chart entries should still report local values-file status."
 }
 
 if ($script:TestsFailed -gt 0) {

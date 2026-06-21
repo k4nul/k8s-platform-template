@@ -129,6 +129,25 @@ function Get-HelmVersionPinStatus {
     return "unpinned"
 }
 
+function Get-RepoRelativePathStatus {
+    param(
+        [string]$Root,
+        [string]$RelativePath
+    )
+
+    if (-not $RelativePath) {
+        return "not-configured"
+    }
+
+    $normalizedRelativePath = $RelativePath -replace '\\', [System.IO.Path]::DirectorySeparatorChar
+    $resolvedPath = [System.IO.Path]::GetFullPath((Join-Path $Root $normalizedRelativePath))
+    if (Test-Path -LiteralPath $resolvedPath -PathType Leaf) {
+        return "present"
+    }
+
+    return "missing"
+}
+
 if (-not $PSBoundParameters.ContainsKey("RepoRoot") -or -not $RepoRoot) {
     $RepoRoot = Join-Path $PSScriptRoot ".."
 }
@@ -252,6 +271,7 @@ foreach ($release in @($helmReleaseCatalog.Releases | Sort-Object Name)) {
     $chart = Get-OptionalCatalogValue -Item $release -Name "Chart"
     $repoName = Get-OptionalCatalogValue -Item $release -Name "RepoName"
     $repoUrl = Get-OptionalCatalogValue -Item $release -Name "RepoUrl"
+    $valuesRelativePath = Get-OptionalCatalogValue -Item $release -Name "ValuesRelativePath"
     $notes = Get-OptionalCatalogValue -Item $release -Name "Notes"
 
     $helmRecords += [PSCustomObject]@{
@@ -262,6 +282,8 @@ foreach ($release in @($helmReleaseCatalog.Releases | Sort-Object Name)) {
         Chart = $chart
         RepoName = $repoName
         RepoUrl = $repoUrl
+        ValuesRelativePath = $valuesRelativePath
+        ValuesFileStatus = Get-RepoRelativePathStatus -Root $root -RelativePath $valuesRelativePath
         ChartSourceType = Get-HelmChartSourceType -Release $release
         VersionPinStatus = Get-HelmVersionPinStatus -Release $release
         Notes = $notes
@@ -344,6 +366,7 @@ switch ($Format) {
             foreach ($release in $helmRecords) {
                 $chart = if ($release.Chart) { $release.Chart } else { "not configured" }
                 $repo = if ($release.RepoUrl) { $release.RepoUrl } else { "not configured" }
+                $valuesPath = if ($release.ValuesRelativePath) { $release.ValuesRelativePath } else { "not configured" }
                 $lines += ("### " + $release.Name)
                 $lines += ""
                 $lines += ("- Enabled: " + [string]$release.Enabled)
@@ -351,6 +374,8 @@ switch ($Format) {
                 $lines += ("- Kubernetes directory: " + $release.K8sDirectory)
                 $lines += ("- Chart: " + $chart)
                 $lines += ("- Repository: " + $repo)
+                $lines += ("- Values file: " + $valuesPath)
+                $lines += ("- Values file status: " + $release.ValuesFileStatus)
                 $lines += ("- Chart source type: " + $release.ChartSourceType)
                 $lines += ("- Version pin status: " + $release.VersionPinStatus)
                 if ($release.Notes) {
@@ -408,12 +433,15 @@ switch ($Format) {
             foreach ($release in $helmRecords) {
                 $chart = if ($release.Chart) { $release.Chart } else { "not configured" }
                 $repo = if ($release.RepoUrl) { $release.RepoUrl } else { "not configured" }
+                $valuesPath = if ($release.ValuesRelativePath) { $release.ValuesRelativePath } else { "not configured" }
                 $lines += $release.Name
                 $lines += ("  Enabled: " + [string]$release.Enabled)
                 $lines += ("  Namespace: " + $release.Namespace)
                 $lines += ("  Kubernetes directory: " + $release.K8sDirectory)
                 $lines += ("  Chart: " + $chart)
                 $lines += ("  Repository: " + $repo)
+                $lines += ("  Values file: " + $valuesPath)
+                $lines += ("  Values file status: " + $release.ValuesFileStatus)
                 $lines += ("  Chart source type: " + $release.ChartSourceType)
                 $lines += ("  Version pin status: " + $release.VersionPinStatus)
                 if ($release.Notes) {

@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-20
+Last reviewed: 2026-06-21
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -14,7 +14,7 @@ Kubernetes manifest APIs, and generated-artifact hygiene.
 | PowerShell validation and rendering | `scripts/*.ps1`, `tests/*.Tests.ps1` | Requires PowerShell or `pwsh`; scripts use repository-local helpers and PowerShell data files |
 | Kubernetes schema validation | `scripts/validate-rendered-bundle.ps1`, `scripts/validate-platform-assets.ps1`, generated `validate-bundle.ps1` | Repository validation prefers `kubeconform` and falls back to `kubectl apply --dry-run=client --validate=true`; generated bundle validation now exposes the same `auto`, `kubeconform`, and `kubectl` selection surface; non-strict mode warns when all validators are absent |
 | Workstation validation | `scripts/validate-workstation.ps1`, `scripts/invoke-repository-validation.ps1` | Strict repository validation requires `kubectl` and `helm`; `git`, `docker`, `python`, and `kubeconform` are optional readiness tools |
-| Helm chart scaffolds | `config/helm-releases.psd1`, `k8s/*/values.yaml` | ExternalDNS, Harbor, NGINX Gateway Fabric, Longhorn, Kubernetes Dashboard, and disabled VPA scaffold entries; chart references are not version-pinned in the repository |
+| Helm chart scaffolds | `config/helm-releases.psd1`, `k8s/*/values.yaml` | ExternalDNS, Harbor, NGINX Gateway Fabric, Longhorn, Kubernetes Dashboard, and disabled VPA scaffold entries; chart references are not version-pinned in the repository; dependency-plan output reports chart source type, version-pin status, and local values-file status |
 | Public service images | `config/service-builds.psd1`, `config/service-runtime-bindings.psd1`, `services/*/docker-compose.yaml`, `k8s/400_*/*.yaml`, `scripts/show-service-dependency-plan.ps1` | `adminer:5.3.0-standalone`, `mccutchen/go-httpbin:v2.15.0`, `nginx:1.28-alpine`, `traefik/whoami:v1.10.4`; dependency-plan output now reports build and runtime image provenance status for selected services |
 | Platform images | `k8s/**/*.yaml` | Public tags for MySQL, PostgreSQL, Redis, Memcached, Metrics Server, NGINX, and related platform examples |
 | Generated outputs and local secrets | `.gitignore`, delivery and rendering scripts | `out/`, `.kube/`, `secrets/`, `cluster-bootstrap/`, local env files, and private agent files are intentionally untracked |
@@ -59,7 +59,8 @@ Scope:
 - Confirm service runtime plan output exposes cataloged public image references
   instead of hiding them as unspecified image references.
 - Confirm service dependency plan output exposes selected service build/runtime
-  image provenance and selected Helm chart source/version-pin status.
+  image provenance and selected Helm chart source/version-pin/local values-file
+  status.
 - Confirm `.gitignore` still excludes generated bundles and local secret-bearing
   files.
 
@@ -96,8 +97,8 @@ Scope:
 - Review enabled chart references in `config/helm-releases.psd1` and their values
   files as one Helm-maintenance batch.
 - Use `show-service-dependency-plan.ps1 -Format markdown` or `-Format json` to
-  review chart source type and version-pin status before changing chart
-  references.
+  review chart source type, version-pin status, and local values-file status
+  before changing chart references.
 - Keep the VPA scaffold disabled until a supported chart reference is selected
   for the target environment.
 - Do not run chart updates that require private repositories or live cluster
@@ -233,6 +234,15 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 
 ## Changes Made And Validation
 
+The 2026-06-21 dependency-plan pass extended Helm dependency reporting with
+local values-file evidence. `show-service-dependency-plan.ps1` now includes each
+selected Helm entry's `ValuesRelativePath` and `ValuesFileStatus` in JSON output
+and prints the same values-file path/status in markdown and text output. The
+focused test now verifies that enabled chart entries expose present local values
+files and that disabled scaffolds still report their local values-file status.
+This pass did not change public image tags, Helm chart references, runtime
+dependencies, lockfiles, rendered bundles, or generated artifacts.
+
 The 2026-06-20 dependency-plan pass added dependency provenance reporting to
 `show-service-dependency-plan.ps1`. Selected service entries now include build
 profile, build public image, runtime public image, and image provenance status,
@@ -286,6 +296,21 @@ pwsh -NoProfile -File scripts/show-service-dependency-plan.ps1 -Format markdown
 pwsh -NoProfile -File tests/render-platform-assets.Tests.ps1
 tmpdir=$(mktemp -d /tmp/k8s-bundle-validate-XXXXXX); pwsh -NoProfile -File scripts/render-platform-assets.ps1 -OutputPath "$tmpdir" -ValuesFile config/platform-values.env.example -Version 0.0.0-check -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -FailOnUnresolvedToken >/tmp/render-bundle.out && pwsh -NoProfile -File "$tmpdir/validate-bundle.ps1" -BundleRoot "$tmpdir"; rc=$?; rm -rf "$tmpdir"; cat /tmp/render-bundle.out; exit $rc
 ```
+
+On 2026-06-21, `tests/show-service-dependency-plan.Tests.ps1` passed with two
+tests covering selected service image provenance in markdown output and Helm
+source/version-pin/local values-file metadata in JSON output. `validate-template.ps1`
+completed successfully after adding that focused test to the template gate. It
+emitted the expected non-strict warnings because `kubeconform`, `kubectl`, and
+`helm` were not installed, then completed rendered structural preflight,
+security baseline checks, the render matrix, and catalog validation
+successfully. `invoke-repository-validation.ps1 -EnvironmentPreset dev` reached
+and completed the nested template validation, then failed at strict workstation
+validation because required tools `helm` and `kubectl` are not installed on this
+host. `show-validation-readiness.ps1` reported
+`repository-only-validation-available`, missing requirement groups
+`kubeconform or kubectl, helm`, and missing direct required tool `helm` for the
+selected `web-platform` bundle.
 
 On 2026-06-20, `tests/show-service-dependency-plan.Tests.ps1` passed with two
 tests covering selected service image provenance in markdown output and Helm
