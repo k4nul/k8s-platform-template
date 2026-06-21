@@ -485,6 +485,259 @@ function Add-SecretCommandArgumentFindings {
     }
 }
 
+function Get-YamlListItemBlocks {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyString()]
+        [string[]]$Lines,
+
+        [Parameter(Mandatory = $true)]
+        [int]$StartLine,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SectionName
+    )
+
+    $blocks = New-Object System.Collections.Generic.List[object]
+    $sectionPattern = '^\s*' + [regex]::Escape($SectionName) + ':\s*(?:#.*)?$'
+    $inSection = $false
+    $sectionIndent = -1
+    $itemIndent = -1
+    $currentLines = New-Object System.Collections.Generic.List[string]
+    $currentStartLine = 0
+
+    for ($index = 0; $index -lt $Lines.Count; $index++) {
+        $line = $Lines[$index]
+
+        if (-not $inSection) {
+            if ($line -match $sectionPattern) {
+                $inSection = $true
+                $sectionIndent = Get-IndentLength -Line $line
+                $itemIndent = -1
+            }
+
+            continue
+        }
+
+        if (-not $line.Trim()) {
+            if ($currentLines.Count -gt 0) {
+                $currentLines.Add($line) | Out-Null
+            }
+
+            continue
+        }
+
+        $indent = Get-IndentLength -Line $line
+
+        if ($itemIndent -lt 0) {
+            if ($indent -lt $sectionIndent -or ($indent -eq $sectionIndent -and $line -notmatch '^\s*-\s+')) {
+                $inSection = $false
+                $sectionIndent = -1
+                continue
+            }
+
+            if ($line -match '^\s*-\s+') {
+                $itemIndent = $indent
+                $currentStartLine = $StartLine + $index
+                $currentLines.Clear()
+                $currentLines.Add($line) | Out-Null
+            }
+
+            continue
+        }
+
+        if ($indent -lt $itemIndent -or ($indent -eq $itemIndent -and $line -notmatch '^\s*-\s+')) {
+            if ($currentLines.Count -gt 0) {
+                $blocks.Add([PSCustomObject]@{
+                    StartLine = $currentStartLine
+                    ItemIndent = $itemIndent
+                    Lines = @($currentLines.ToArray())
+                }) | Out-Null
+                $currentLines.Clear()
+            }
+
+            $inSection = $false
+            $sectionIndent = -1
+            $itemIndent = -1
+            continue
+        }
+
+        if ($indent -eq $itemIndent -and $line -match '^\s*-\s+') {
+            if ($currentLines.Count -gt 0) {
+                $blocks.Add([PSCustomObject]@{
+                    StartLine = $currentStartLine
+                    ItemIndent = $itemIndent
+                    Lines = @($currentLines.ToArray())
+                }) | Out-Null
+            }
+
+            $currentStartLine = $StartLine + $index
+            $currentLines.Clear()
+            $currentLines.Add($line) | Out-Null
+            continue
+        }
+
+        if ($currentLines.Count -gt 0) {
+            $currentLines.Add($line) | Out-Null
+        }
+    }
+
+    if ($currentLines.Count -gt 0) {
+        $blocks.Add([PSCustomObject]@{
+            StartLine = $currentStartLine
+            ItemIndent = $itemIndent
+            Lines = @($currentLines.ToArray())
+        }) | Out-Null
+    }
+
+    return $blocks.ToArray()
+}
+
+function Get-YamlListItemPropertyLineNumber {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Block,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName
+    )
+
+    $propertyPattern = '^\s*' + [regex]::Escape($PropertyName) + ':\s*(?:.*)$'
+    $listItemPropertyPattern = '^\s*-\s*' + [regex]::Escape($PropertyName) + ':\s*(?:.*)$'
+    $topLevelIndent = [int]$Block.ItemIndent + 2
+    $lines = @($Block.Lines)
+
+    for ($index = 0; $index -lt $lines.Count; $index++) {
+        $line = $lines[$index]
+        if ($index -eq 0 -and $line -match $listItemPropertyPattern) {
+            return ([int]$Block.StartLine + $index)
+        }
+
+        if ((Get-IndentLength -Line $line) -eq $topLevelIndent -and $line -match $propertyPattern) {
+            return ([int]$Block.StartLine + $index)
+        }
+    }
+
+    return 0
+}
+
+function Get-YamlListItemDisplayName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$Block
+    )
+
+    $lines = @($Block.Lines)
+    $topLevelIndent = [int]$Block.ItemIndent + 2
+    if ($lines.Count -gt 0 -and $lines[0] -match '^\s*-\s*name:\s*(.+)$') {
+        return (Remove-YamlScalarQuotes -Value $Matches[1])
+    }
+
+    foreach ($line in $lines) {
+        if ((Get-IndentLength -Line $line) -eq $topLevelIndent -and $line -match '^\s*name:\s*(.+)$') {
+            return (Remove-YamlScalarQuotes -Value $Matches[1])
+        }
+    }
+
+    return ""
+}
+
+function Add-MissingContainerPropertyFinding {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Findings,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Container,
+
+        [Parameter(Mandatory = $true)]
+        [string]$PropertyName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Severity,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Id,
+
+        [Parameter(Mandatory = $true)]
+        [string]$File,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Message,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Remediation
+    )
+
+    if ((Get-YamlListItemPropertyLineNumber -Block $Container -PropertyName $PropertyName) -gt 0) {
+        return
+    }
+
+    $containerName = Get-YamlListItemDisplayName -Block $Container
+    $findingMessage = if ($containerName) {
+        ("Container '{0}' {1}" -f $containerName, $Message)
+    }
+    else {
+        ("A workload container {0}" -f $Message)
+    }
+
+    Add-Finding `
+        -Findings $Findings `
+        -Severity $Severity `
+        -Id $Id `
+        -File $File `
+        -Line ([int]$Container.StartLine) `
+        -Message $findingMessage `
+        -Remediation $Remediation
+}
+
+function Add-WorkloadContainerPostureFindings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Findings,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Document,
+
+        [Parameter(Mandatory = $true)]
+        [string]$File
+    )
+
+    foreach ($container in @(Get-YamlListItemBlocks -Lines @($Document.Lines) -StartLine ([int]$Document.StartLine) -SectionName "containers")) {
+        Add-MissingContainerPropertyFinding `
+            -Findings $Findings `
+            -Container $container `
+            -PropertyName "resources" `
+            -Severity "medium" `
+            -Id "missing-container-resources" `
+            -File $File `
+            -Message "does not declare resource requests and limits." `
+            -Remediation "Add conservative container resources for predictable scheduling and blast-radius control."
+
+        Add-MissingContainerPropertyFinding `
+            -Findings $Findings `
+            -Container $container `
+            -PropertyName "readinessProbe" `
+            -Severity "medium" `
+            -Id "missing-readiness-probe" `
+            -File $File `
+            -Message "does not declare a readinessProbe." `
+            -Remediation "Add a readinessProbe that matches the service protocol before enabling rollout automation."
+
+        Add-MissingContainerPropertyFinding `
+            -Findings $Findings `
+            -Container $container `
+            -PropertyName "livenessProbe" `
+            -Severity "medium" `
+            -Id "missing-liveness-probe" `
+            -File $File `
+            -Message "does not declare a livenessProbe." `
+            -Remediation "Add a livenessProbe only after confirming it will not restart slow-starting components prematurely."
+    }
+}
+
 if (-not $PSBoundParameters.ContainsKey("Path") -or -not $Path) {
     $Path = Join-Path $PSScriptRoot ".."
 }
@@ -641,17 +894,15 @@ foreach ($file in $yamlFiles) {
         -Message "A container image uses the mutable latest tag." `
         -Remediation "Pin the image to a reviewable version tag."
 
-    $explicitServiceAccountTokenAutomount = $content -match '(?m)^\s{6,}automountServiceAccountToken:\s*true\s*$'
-    if ($explicitServiceAccountTokenAutomount) {
-        Add-Finding `
-            -Findings $findings `
-            -Severity "medium" `
-            -Id "service-account-token-automount" `
-            -File $relativePath `
-            -Line (Get-FirstMatchLineNumber -Content $content -Pattern '^\s{6,}automountServiceAccountToken:\s*true\s*$') `
-            -Message "A workload explicitly automounts a service account token." `
-            -Remediation "Set automountServiceAccountToken to false unless the workload has a reviewed Kubernetes API access requirement."
-    }
+    Add-RegexFinding `
+        -Findings $findings `
+        -Content $content `
+        -Pattern '(?m)^\s{6,}automountServiceAccountToken:\s*true\s*$' `
+        -Severity "medium" `
+        -Id "service-account-token-automount" `
+        -File $relativePath `
+        -Message "A workload explicitly automounts a service account token." `
+        -Remediation "Set automountServiceAccountToken to false unless the workload has a reviewed Kubernetes API access requirement."
 
     Add-RegexFinding `
         -Findings $findings `
@@ -684,61 +935,40 @@ foreach ($file in $yamlFiles) {
         -Content $content `
         -File $relativePath
 
-    $isWorkload = $content -match '(?m)^kind:\s*(Deployment|StatefulSet|DaemonSet)\s*$'
-    if (-not $isWorkload) {
-        continue
-    }
+    foreach ($document in @(Get-YamlDocuments -Content $content)) {
+        $documentContent = [string]$document.Content
+        if ($documentContent -notmatch '(?m)^kind:\s*(Deployment|StatefulSet|DaemonSet)\s*$') {
+            continue
+        }
 
-    if ($content -notmatch '(?m)^\s{8,}resources:\s*$') {
-        Add-Finding `
+        Add-WorkloadContainerPostureFindings `
             -Findings $findings `
-            -Severity "medium" `
-            -Id "missing-container-resources" `
-            -File $relativePath `
-            -Message "A workload container does not declare resource requests and limits." `
-            -Remediation "Add conservative container resources for predictable scheduling and blast-radius control."
-    }
+            -Document $document `
+            -File $relativePath
 
-    if ($content -notmatch '(?m)^\s{6,}securityContext:\s*$') {
-        Add-Finding `
-            -Findings $findings `
-            -Severity "medium" `
-            -Id "missing-security-context" `
-            -File $relativePath `
-            -Message "A workload does not declare a pod or container securityContext." `
-            -Remediation "Add a securityContext after confirming the public image supports the intended user, filesystem, and capability settings."
-    }
+        if ($documentContent -notmatch '(?m)^\s{6,}securityContext:\s*$') {
+            Add-Finding `
+                -Findings $findings `
+                -Severity "medium" `
+                -Id "missing-security-context" `
+                -File $relativePath `
+                -Line ([int]$document.StartLine) `
+                -Message "A workload does not declare a pod or container securityContext." `
+                -Remediation "Add a securityContext after confirming the public image supports the intended user, filesystem, and capability settings."
+        }
 
-    if (-not $explicitServiceAccountTokenAutomount -and
-        $content -notmatch '(?m)^\s{6,}serviceAccountName:\s*\S+\s*$' -and
-        $content -notmatch '(?m)^\s{6,}automountServiceAccountToken:\s*false\s*$') {
-        Add-Finding `
-            -Findings $findings `
-            -Severity "medium" `
-            -Id "missing-service-account-token-disable" `
-            -File $relativePath `
-            -Message "A workload that uses the default service account does not disable service account token automounting." `
-            -Remediation "Set automountServiceAccountToken to false for workloads that do not need Kubernetes API access."
-    }
-
-    if ($content -notmatch '(?m)^\s{8,}readinessProbe:\s*$') {
-        Add-Finding `
-            -Findings $findings `
-            -Severity "medium" `
-            -Id "missing-readiness-probe" `
-            -File $relativePath `
-            -Message "A workload does not declare a readinessProbe." `
-            -Remediation "Add a readinessProbe that matches the service protocol before enabling rollout automation."
-    }
-
-    if ($content -notmatch '(?m)^\s{8,}livenessProbe:\s*$') {
-        Add-Finding `
-            -Findings $findings `
-            -Severity "medium" `
-            -Id "missing-liveness-probe" `
-            -File $relativePath `
-            -Message "A workload does not declare a livenessProbe." `
-            -Remediation "Add a livenessProbe only after confirming it will not restart slow-starting components prematurely."
+        if ($documentContent -notmatch '(?m)^\s{6,}automountServiceAccountToken:\s*true\s*$' -and
+            $documentContent -notmatch '(?m)^\s{6,}serviceAccountName:\s*\S+\s*$' -and
+            $documentContent -notmatch '(?m)^\s{6,}automountServiceAccountToken:\s*false\s*$') {
+            Add-Finding `
+                -Findings $findings `
+                -Severity "medium" `
+                -Id "missing-service-account-token-disable" `
+                -File $relativePath `
+                -Line ([int]$document.StartLine) `
+                -Message "A workload that uses the default service account does not disable service account token automounting." `
+                -Remediation "Set automountServiceAccountToken to false for workloads that do not need Kubernetes API access."
+        }
     }
 }
 

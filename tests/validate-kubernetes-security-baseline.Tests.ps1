@@ -282,6 +282,43 @@ Invoke-Test -Name "Security baseline allows hardened workload with NetworkPolicy
     }
 }
 
+Invoke-Test -Name "Security baseline reports per-container posture gaps in multi-container workloads" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "deployment.yaml" = "apiVersion: apps/v1`nkind: Deployment`nmetadata:`n  name: multi-container-web`nspec:`n  replicas: 1`n  selector:`n    matchLabels:`n      app: multi-container-web`n  template:`n    metadata:`n      labels:`n        app: multi-container-web`n    spec:`n      automountServiceAccountToken: false`n      securityContext:`n        runAsNonRoot: true`n      containers:`n        - name: web`n          image: nginx:1.25.4`n          resources:`n            requests:`n              cpu: 50m`n              memory: 64Mi`n            limits:`n              cpu: 250m`n              memory: 128Mi`n          readinessProbe:`n            httpGet:`n              path: /`n              port: 80`n          livenessProbe:`n            httpGet:`n              path: /`n              port: 80`n        - name: sidecar`n          image: busybox:1.36`n          command:`n            - /bin/sh`n            - -c`n          args:`n            - sleep 3600`n"
+                "networkpolicy.yaml" = "apiVersion: networking.k8s.io/v1`nkind: NetworkPolicy`nmetadata:`n  name: multi-container-web-default-deny`nspec:`n  podSelector:`n    matchLabels:`n      app: multi-container-web`n  policyTypes:`n    - Ingress`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot 3>&1 2>&1 | Out-String)
+        Assert-Contains -Content $output -Expected "missing-container-resources" -Message "Every regular container should declare resource requests and limits."
+        Assert-Contains -Content $output -Expected "missing-readiness-probe" -Message "Every regular container should declare a readiness probe."
+        Assert-Contains -Content $output -Expected "missing-liveness-probe" -Message "Every regular container should declare a liveness probe."
+
+        $failed = $false
+        try {
+            & $securityBaselineScript -Path $testRoot -FailOnMediumFinding 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            Assert-Contains `
+                -Content $_.Exception.Message `
+                -Expected "high or medium" `
+                -Message "FailOnMediumFinding should block per-container posture gaps."
+            $failed = $true
+        }
+
+        Assert-True -Condition $failed -Message "FailOnMediumFinding should fail when one container in a workload is missing posture controls."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Security baseline fail-on-medium blocks workload posture gaps" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
 
