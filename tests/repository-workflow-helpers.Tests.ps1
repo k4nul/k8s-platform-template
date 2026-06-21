@@ -167,6 +167,8 @@ function New-TestRepositoryValidationRepo {
             "param(",
             "    [string]`$RepoRoot,",
             "    [string]`$ValuesFile,",
+            "    [string]`$RenderedPath,",
+            "    [string]`$HelmConfigFile,",
             "    [string]`$DockerRegistry = '',",
             "    [string]`$Version,",
             "    [string]`$Profile,",
@@ -184,6 +186,8 @@ function New-TestRepositoryValidationRepo {
             "`$record = [PSCustomObject]@{",
             "    RepoRoot = `$RepoRoot",
             "    ValuesFile = `$ValuesFile",
+            "    RenderedPath = `$RenderedPath",
+            "    HelmConfigFile = `$HelmConfigFile",
             "    Version = `$Version",
             "    Profile = `$Profile",
             "    Applications = @(`$Applications)",
@@ -360,6 +364,102 @@ Invoke-Test -Name "Repository validation explicit values override preset validat
             -Expected $expectedValuesFile `
             -Actual $record.ValuesFile `
             -Message "Explicit ValuesFile should override preset ValidationValuesFile."
+    }
+    finally {
+        Remove-Item Env:REPOSITORY_VALIDATION_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Repository validation forwards preset rendered path and Helm config" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+    $renderedPath = "out\rendered-dev"
+    $helmConfigFile = "config\helm-releases.psd1"
+
+    try {
+        New-TestRepositoryValidationRepo -Root $testRoot
+        New-TestTextFile `
+            -Root $testRoot `
+            -RelativePath "config\environments\rendered.psd1" `
+            -Lines @(
+                "@{",
+                "    ValuesFile = 'config\platform-values.private.env'",
+                "    ValidationValuesFile = 'config\platform-values.env.example'",
+                "    RenderedPath = '$renderedPath'",
+                "    HelmConfigFile = '$helmConfigFile'",
+                "    Profile = 'web-platform'",
+                "    Applications = @('nginx-web')",
+                "    SkipTemplateValidation = `$true",
+                "    SkipWorkstationValidation = `$true",
+                "}"
+            )
+        New-TestTextFile `
+            -Root $testRoot `
+            -RelativePath $helmConfigFile `
+            -Lines @("@{}")
+        New-Item -ItemType Directory -Path (Join-Path $testRoot $renderedPath) -Force | Out-Null
+        $env:REPOSITORY_VALIDATION_ASSET_LOG = $logPath
+
+        & $repositoryValidation `
+            -RepoRoot $testRoot `
+            -EnvironmentPreset rendered 3>&1 2>&1 | Out-String | Out-Null
+
+        $record = @(Get-Content -Path $logPath | ForEach-Object { $_ | ConvertFrom-Json })[0]
+        $expectedRenderedPath = Resolve-RepoPath -Root $testRoot -Path $renderedPath
+        $expectedHelmConfigFile = Resolve-RepoPath -Root $testRoot -Path $helmConfigFile
+
+        Assert-Equal `
+            -Expected $expectedRenderedPath `
+            -Actual $record.RenderedPath `
+            -Message "Preset RenderedPath should resolve from the repository root before platform asset validation."
+        Assert-Equal `
+            -Expected $expectedHelmConfigFile `
+            -Actual $record.HelmConfigFile `
+            -Message "Preset HelmConfigFile should resolve from the repository root before platform asset validation."
+    }
+    finally {
+        Remove-Item Env:REPOSITORY_VALIDATION_ASSET_LOG -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+        if (Test-Path -LiteralPath $logPath) {
+            Remove-Item -LiteralPath $logPath -Force
+        }
+    }
+}
+
+Invoke-Test -Name "Repository validation rejects missing rendered path before asset validation" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-test-" + [Guid]::NewGuid().ToString("N"))
+    $logPath = Join-Path ([System.IO.Path]::GetTempPath()) ("repository-validation-log-" + [Guid]::NewGuid().ToString("N") + ".jsonl")
+    $missingRenderedPath = "out\missing-rendered-dev"
+    $failed = $false
+
+    try {
+        New-TestRepositoryValidationRepo -Root $testRoot
+        $env:REPOSITORY_VALIDATION_ASSET_LOG = $logPath
+
+        try {
+            & $repositoryValidation `
+                -RepoRoot $testRoot `
+                -EnvironmentPreset dev `
+                -RenderedPath $missingRenderedPath 3>&1 2>&1 | Out-String | Out-Null
+        }
+        catch {
+            $failed = $true
+            Assert-Equal `
+                -Expected ("Rendered bundle path does not exist: {0}" -f (Resolve-RepoPath -Root $testRoot -Path $missingRenderedPath)) `
+                -Actual $_.Exception.Message `
+                -Message "Missing rendered bundle paths should fail before platform asset validation runs."
+        }
+
+        Assert-True -Condition $failed -Message "Repository validation should reject missing rendered bundle paths."
+        Assert-False -Condition (Test-Path -LiteralPath $logPath) -Message "Asset validation should not run after rendered path validation fails."
     }
     finally {
         Remove-Item Env:REPOSITORY_VALIDATION_ASSET_LOG -ErrorAction SilentlyContinue
