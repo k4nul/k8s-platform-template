@@ -34,10 +34,28 @@ $resolvedValuesFile = [System.IO.Path]::GetFullPath($ValuesFile)
 $resolvedHelmConfig = (Resolve-Path -Path $HelmConfigFile).Path
 $selection = Resolve-PlatformSelection -Profile $Profile -Applications $Applications -DataServices $DataServices -IncludeJenkins:$IncludeJenkins
 $componentCatalog = Get-PlatformK8sComponentCatalog
-$optionalManifestCatalog = Get-PlatformOptionalManifestCatalog
 $helmConfig = Import-PowerShellDataFile -Path $resolvedHelmConfig
 
 New-Item -ItemType Directory -Path $resolvedBundleRoot -Force | Out-Null
+
+function Resolve-BundleRelativePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root,
+
+        [Parameter(Mandatory = $true)]
+        [string]$RelativePath
+    )
+
+    $segments = @($RelativePath -split "[\\/]" | Where-Object { $_ })
+    $resolvedPath = $Root
+
+    foreach ($segment in $segments) {
+        $resolvedPath = Join-Path $resolvedPath $segment
+    }
+
+    return $resolvedPath
+}
 
 $k8sRoot = Join-Path $resolvedBundleRoot "k8s"
 $servicesRoot = Join-Path $resolvedBundleRoot "services"
@@ -133,17 +151,18 @@ foreach ($release in @($helmConfig.Releases)) {
     }
 }
 
-$optionalManifests = @()
-foreach ($relativePath in $optionalManifestCatalog.Keys) {
-    $bundleRelativePath = Join-Path "k8s" $relativePath
-    $fullPath = Join-Path $resolvedBundleRoot $bundleRelativePath
-    if (Test-Path -Path $fullPath -PathType Leaf) {
-        $optionalManifests += [PSCustomObject]@{
-            RelativePath = $bundleRelativePath
-            Notes = $optionalManifestCatalog[$relativePath]
+$optionalManifests = @(
+    Get-PlatformOptionalManifestEntries -K8sDirectories $renderedK8sDirectories |
+        ForEach-Object {
+            $fullPath = Resolve-BundleRelativePath -Root $resolvedBundleRoot -RelativePath $_.RelativePath
+            [PSCustomObject]@{
+                RelativePath = $_.RelativePath
+                CatalogRelativePath = $_.CatalogRelativePath
+                IncludedInBundle = (Test-Path -Path $fullPath -PathType Leaf)
+                Notes = $_.Notes
+            }
         }
-    }
-}
+)
 
 $bundleManifest = [ordered]@{
     GeneratedAtUtc = [DateTime]::UtcNow.ToString("o")
@@ -253,7 +272,8 @@ if ($optionalManifestItems.Count -gt 0) {
     $docLines += "## Optional Follow-up Manifests"
     $docLines += ""
     foreach ($item in $optionalManifestItems) {
-        $docLines += ("- " + $item.RelativePath + ": " + $item.Notes)
+        $statusText = if ($item.IncludedInBundle) { "included in this bundle" } else { "not rendered into this bundle" }
+        $docLines += ("- " + $item.RelativePath + " (" + $statusText + "): " + $item.Notes)
     }
     $docLines += ""
 }

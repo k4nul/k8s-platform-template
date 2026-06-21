@@ -66,7 +66,8 @@ $renderScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\render-pl
 $deliveryScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\invoke-bundle-delivery.ps1") -Raw
 $assetValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-platform-assets.ps1") -Raw
 $templateValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-template.ps1") -Raw
-$bundleWriterScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\write-platform-bundle-files.ps1") -Raw
+$bundleWriterScript = Join-Path $repoRoot "scripts\write-platform-bundle-files.ps1"
+$bundleWriterScriptContent = Get-Content -Path $bundleWriterScript -Raw
 $secretCatalogContent = Get-Content -Path (Join-Path $repoRoot "scripts\cluster-secret-catalog.ps1") -Raw
 $secretPlanContent = Get-Content -Path (Join-Path $repoRoot "scripts\show-cluster-secret-plan.ps1") -Raw
 
@@ -188,6 +189,56 @@ Invoke-Test -Name "Generated bundle validation supports offline schema validator
         -Content $bundleWriterScriptContent `
         -Expected '& $applyScript -BundleRoot $BundleRoot -DryRun' `
         -Message "Generated bundle validation should keep the kubectl dry-run fallback path."
+}
+
+Invoke-Test -Name "Bundle manifest reports selected optional manifests as excluded follow-up evidence" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("bundle-writer-test-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        $k8sRoot = Join-Path $testRoot "k8s"
+        New-Item -ItemType Directory -Path (Join-Path $k8sRoot "311_platform_kubernetes-dashboard") -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $k8sRoot "312_platform_vertical-pod-autoscaler") -Force | Out-Null
+
+        & $bundleWriterScript `
+            -RepoRoot $repoRoot `
+            -BundleRoot $testRoot `
+            -ValuesFile (Join-Path $repoRoot "config\platform-values.env.example") `
+            -HelmConfigFile (Join-Path $repoRoot "config\helm-releases.psd1") `
+            -Profile "full" 3>&1 2>&1 |
+            Out-String |
+            Out-Null
+
+        $manifest = Get-Content -Path (Join-Path $testRoot "bundle-manifest.json") -Raw | ConvertFrom-Json
+        $optionalManifests = @($manifest.OptionalManifests)
+        $optionalManifestPaths = @($optionalManifests | Select-Object -ExpandProperty RelativePath)
+        $adminSample = @(
+            $optionalManifests |
+                Where-Object { $_.RelativePath -eq "k8s\311_platform_kubernetes-dashboard\sample-admin-user.yaml" }
+        )[0]
+        $deploymentBundle = Get-Content -Path (Join-Path $testRoot "DEPLOYMENT_BUNDLE.md") -Raw
+
+        Assert-Equal `
+            -Expected 3 `
+            -Actual $optionalManifests.Count `
+            -Message "Bundle manifest should preserve selected optional-manual manifest evidence even when excluded from rendering."
+        Assert-Contains `
+            -Content ($optionalManifestPaths -join "|") `
+            -Expected "k8s\311_platform_kubernetes-dashboard\sample-admin-user.yaml" `
+            -Message "Bundle manifest should include the cataloged Dashboard admin follow-up path."
+        Assert-Equal `
+            -Expected $false `
+            -Actual ([bool]$adminSample.IncludedInBundle) `
+            -Message "Dashboard admin sample should remain excluded from the generated bundle."
+        Assert-Contains `
+            -Content $deploymentBundle `
+            -Expected "not rendered into this bundle" `
+            -Message "Deployment bundle documentation should state that optional follow-up manifests are not rendered."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
 }
 
 if ($script:TestsFailed -gt 0) {

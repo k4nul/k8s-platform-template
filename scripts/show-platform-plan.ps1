@@ -284,7 +284,6 @@ $planSelection = [PSCustomObject]@{
     ServiceDirectories = @($effectiveServiceDirectories)
 }
 $componentCatalog = Get-PlatformK8sComponentCatalog
-$optionalManifestCatalog = Get-PlatformOptionalManifestCatalog
 $helmConfig = Import-PowerShellDataFile -Path $resolvedHelmConfig
 
 $allComponents = @()
@@ -364,16 +363,7 @@ foreach ($release in @($helmConfig.Releases)) {
     }
 }
 
-$optionalManifests = @()
-foreach ($relativePath in $optionalManifestCatalog.Keys) {
-    $directoryName = ($relativePath -split "[\\/]", 2)[0]
-    if ($planSelection.K8sDirectories -contains $directoryName) {
-        $optionalManifests += [PSCustomObject]@{
-            RelativePath = ("k8s\" + $relativePath)
-            Notes = $optionalManifestCatalog[$relativePath]
-        }
-    }
-}
+$optionalManifests = @(Get-PlatformOptionalManifestEntries -K8sDirectories $planSelection.K8sDirectories)
 
 $document = Get-PlanDocument `
     -Selection $planSelection `

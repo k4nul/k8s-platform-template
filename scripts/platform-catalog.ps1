@@ -206,6 +206,44 @@ function Get-PlatformOptionalManifestCatalog {
     }
 }
 
+function Get-PlatformOptionalManifestEntries {
+    param(
+        [string[]]$K8sDirectories = @()
+    )
+
+    $directoryMap = @{}
+    foreach ($directory in @($K8sDirectories)) {
+        if ($directory) {
+            $directoryMap[([string]$directory).ToLowerInvariant()] = $true
+        }
+    }
+
+    if ($directoryMap.Count -eq 0) {
+        return @()
+    }
+
+    $entries = New-Object System.Collections.Generic.List[object]
+    $catalog = Get-PlatformOptionalManifestCatalog
+
+    foreach ($relativePath in $catalog.Keys) {
+        $catalogRelativePath = (($relativePath -replace '/', '\') -replace '^[\\/]+', '')
+        $directoryName = ($catalogRelativePath -split "[\\/]", 2)[0]
+
+        if (-not $directoryMap.ContainsKey($directoryName.ToLowerInvariant())) {
+            continue
+        }
+
+        $entries.Add([PSCustomObject]@{
+            CatalogRelativePath = $catalogRelativePath
+            RelativePath = ("k8s\{0}" -f $catalogRelativePath)
+            IncludedInBundle = $false
+            Notes = $catalog[$relativePath]
+        }) | Out-Null
+    }
+
+    return $entries.ToArray()
+}
+
 function Expand-PlatformSelectionValues {
     param(
         [string[]]$Values
