@@ -28,9 +28,19 @@ spec:
         - /bin/sh
         - -c
         args:
-        - redis-server /usr/local/etc/redis/redis.conf --requirepass "$REDIS_PASSWORD"
+        - |
+          set -eu
+          cp /usr/local/etc/redis/redis.conf /tmp/redis.conf
+          chmod 600 /tmp/redis.conf
+          printf '\nrequirepass %s\n' "$REDIS_PASSWORD" >> /tmp/redis.conf
+          exec redis-server /tmp/redis.conf
         env:
         - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: redis-sec
+              key: REDIS_PASSWORD
+        - name: REDISCLI_AUTH
           valueFrom:
             secretKeyRef:
               name: redis-sec
@@ -47,9 +57,8 @@ spec:
         readinessProbe:
           exec:
             command:
-            - /bin/sh
-            - -c
-            - redis-cli -a "$REDIS_PASSWORD" ping
+            - redis-cli
+            - ping
           initialDelaySeconds: 5
           periodSeconds: 10
         resources:

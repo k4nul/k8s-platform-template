@@ -280,7 +280,6 @@ foreach ($entry in $secretEntries) {
                 Type = $pattern.Name
                 File = $entry.RelativePath
                 Line = $result.LineNumber
-                Text = $result.Line.Trim()
             }) | Out-Null
         }
     }
@@ -291,7 +290,7 @@ if ($matches.Count -eq 0) {
     return
 }
 
-$matches | Sort-Object File, Line | Format-Table -AutoSize
+$matches | Sort-Object File, Line | Select-Object Type, File, Line | Format-Table -AutoSize
 Write-Warning ("Found {0} bootstrap secret placeholder matches. Update the YAML files before applying them." -f $matches.Count)
 
 if ($FailOnMatch) {

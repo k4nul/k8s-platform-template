@@ -173,6 +173,36 @@ Invoke-Test -Name "Security baseline reports concrete sensitive values without p
     }
 }
 
+Invoke-Test -Name "Security baseline reports secret-bearing command arguments without printing the value" -Body {
+    $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
+    $secretValue = "actual-sensitive-value-123"
+
+    try {
+        New-TestKubernetesBundle `
+            -Root $testRoot `
+            -Manifests @{
+                "deployment.yaml" = "apiVersion: apps/v1`nkind: Deployment`nmetadata:`n  name: redis-like`nspec:`n  replicas: 1`n  selector:`n    matchLabels:`n      app: redis-like`n  template:`n    metadata:`n      labels:`n        app: redis-like`n    spec:`n      automountServiceAccountToken: false`n      securityContext:`n        runAsNonRoot: true`n      containers:`n        - name: redis`n          image: redis:7.4-alpine`n          command:`n            - /bin/sh`n            - -c`n          args:`n            - redis-server /usr/local/etc/redis/redis.conf --requirepass $secretValue`n          resources:`n            requests:`n              cpu: 50m`n              memory: 64Mi`n            limits:`n              cpu: 250m`n              memory: 128Mi`n          securityContext:`n            allowPrivilegeEscalation: false`n          readinessProbe:`n            exec:`n              command:`n                - /bin/sh`n                - -c`n                - redis-cli -a $secretValue ping`n          livenessProbe:`n            tcpSocket:`n              port: 6379`n"
+                "networkpolicy.yaml" = "apiVersion: networking.k8s.io/v1`nkind: NetworkPolicy`nmetadata:`n  name: redis-like-default-deny`nspec:`n  podSelector:`n    matchLabels:`n      app: redis-like`n  policyTypes:`n    - Ingress`n"
+            }
+
+        $output = (& $securityBaselineScript -Path $testRoot 3>&1 2>&1 | Out-String)
+
+        Assert-Contains `
+            -Content $output `
+            -Expected "secret-command-argument" `
+            -Message "Secret-bearing command arguments should be reported."
+        Assert-NotContains `
+            -Content $output `
+            -Unexpected $secretValue `
+            -Message "The finding output should not print the sensitive command argument."
+    }
+    finally {
+        if (Test-Path -LiteralPath $testRoot) {
+            Remove-Item -LiteralPath $testRoot -Recurse -Force
+        }
+    }
+}
+
 Invoke-Test -Name "Security baseline can fail on concrete sensitive Secret values" -Body {
     $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("security-baseline-test-" + [Guid]::NewGuid().ToString("N"))
 

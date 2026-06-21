@@ -68,6 +68,7 @@ $assetValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\
 $templateValidationScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\validate-template.ps1") -Raw
 $bundleWriterScript = Join-Path $repoRoot "scripts\write-platform-bundle-files.ps1"
 $bundleWriterScriptContent = Get-Content -Path $bundleWriterScript -Raw
+$clusterBootstrapWriterScriptContent = Get-Content -Path (Join-Path $repoRoot "scripts\write-cluster-bootstrap-files.ps1") -Raw
 $secretCatalogContent = Get-Content -Path (Join-Path $repoRoot "scripts\cluster-secret-catalog.ps1") -Raw
 $secretPlanContent = Get-Content -Path (Join-Path $repoRoot "scripts\show-cluster-secret-plan.ps1") -Raw
 
@@ -114,6 +115,17 @@ Invoke-Test -Name "Platform asset validation resolves bootstrap secret PowerShel
         -Content $assetValidationScriptContent `
         -Expected '& powershell -NoProfile -ExecutionPolicy Bypass -File $bootstrapCheckScript' `
         -Message "Bootstrap secret readiness should not hardcode Windows PowerShell."
+}
+
+Invoke-Test -Name "Generated bootstrap placeholder checks do not print secret lines" -Body {
+    Assert-Contains `
+        -Content $clusterBootstrapWriterScriptContent `
+        -Expected '$matches | Sort-Object File, Line | Select-Object Type, File, Line | Format-Table -AutoSize' `
+        -Message "Bootstrap placeholder diagnostics should report only match metadata."
+    Assert-NotContains `
+        -Content $clusterBootstrapWriterScriptContent `
+        -Expected 'Text = $result.Line.Trim()' `
+        -Message "Bootstrap placeholder diagnostics should not echo matched secret YAML lines."
 }
 
 Invoke-Test -Name "Template validation forwards rendered schema and high security gates" -Body {

@@ -448,6 +448,43 @@ function Add-RbacWildcardFindings {
     }
 }
 
+function Add-SecretCommandArgumentFindings {
+    param(
+        [Parameter(Mandatory = $true)]
+        [AllowEmptyCollection()]
+        [System.Collections.Generic.List[object]]$Findings,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Content,
+
+        [Parameter(Mandatory = $true)]
+        [string]$File
+    )
+
+    $checks = @(
+        @{
+            Pattern = '(?m)^\s*-\s*.*--requirepass\s+("[^"]+"|''[^'']+''|\S+)'
+            Id = "secret-command-argument"
+        },
+        @{
+            Pattern = '(?m)^\s*-\s*.*\bredis-cli\s+.*\s-a\s+("[^"]+"|''[^'']+''|\S+)'
+            Id = "secret-command-argument"
+        }
+    )
+
+    foreach ($check in $checks) {
+        Add-RegexFinding `
+            -Findings $Findings `
+            -Content $Content `
+            -Pattern ([string]$check.Pattern) `
+            -Severity "medium" `
+            -Id ([string]$check.Id) `
+            -File $File `
+            -Message "A workload command passes a secret-bearing value through process arguments." `
+            -Remediation "Move secret material into a mounted config or ACL file, or use a client-supported environment variable instead of secret-bearing command arguments."
+    }
+}
+
 if (-not $PSBoundParameters.ContainsKey("Path") -or -not $Path) {
     $Path = Join-Path $PSScriptRoot ".."
 }
@@ -638,6 +675,11 @@ foreach ($file in $yamlFiles) {
     }
 
     Add-RbacWildcardFindings `
+        -Findings $findings `
+        -Content $content `
+        -File $relativePath
+
+    Add-SecretCommandArgumentFindings `
         -Findings $findings `
         -Content $content `
         -File $relativePath
