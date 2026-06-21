@@ -37,7 +37,6 @@ if ($null -eq $helm) {
     return
 }
 
-$resolvedRepoRoot = (Resolve-Path -Path $RepoRoot).Path
 $resolvedInputRoot = (Resolve-Path -Path $InputRoot).Path
 $resolvedConfig = (Resolve-Path -Path $HelmConfigFile).Path
 $helmConfig = Import-PowerShellDataFile -Path $resolvedConfig
