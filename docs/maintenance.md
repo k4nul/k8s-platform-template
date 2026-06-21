@@ -1,17 +1,18 @@
 # Template Maintenance
 
 This guide is for maintainers working through the phase currently recorded in
-`docs/instructions/phase-gates.json`. In the current manifest, that is the
-`public-default-security-review` phase returning the public Kubernetes platform
-template to `template-maintenance`. Use it when a dashboard, scheduled
-automation, or reviewer reports that Kubernetes validation is failing and you
-need to separate a template regression from local workstation readiness.
+`docs/instructions/phase-gates.json`. In the current manifest, that is
+`template-maintenance` with no pending `next_phase` after the public-default
+security review returned the Kubernetes platform template to maintenance. Use it
+when a dashboard, scheduled automation, or reviewer reports that Kubernetes
+validation is failing and you need to separate a template regression from local
+workstation readiness.
 
 ## Active Maintenance Scope
 
-The active scope is `public-default-security-review`. It keeps maintenance
-focused on the intentionally permissive public-default posture before returning
-to normal template maintenance:
+The completed review scope was `public-default-security-review`. Routine
+maintenance should preserve the intentionally permissive public-default posture
+unless a maintainer selects a new explicit phase:
 
 - review `platform-public-ingress-baseline` and keep its demo-friendly ingress
   behavior explicit
@@ -22,8 +23,8 @@ to normal template maintenance:
 - keep proving the scope with `scripts/validate-template.ps1`, which checks the
   phase manifest, render matrix, schema-validator wiring, and Kubernetes
   security baseline
-- route a dedicated phase-transition run back to `template-maintenance` only
-  after the template gate and review evidence remain green
+- keep `template-maintenance` without a pending `next_phase` until a new
+  reviewed template scope is selected
 
 Do not add live cluster access, private registry assumptions, or committed
 rendered bundles as part of this scope.
@@ -83,7 +84,7 @@ these checks in order:
 
 | Evidence | Command | Interpret it as |
 | --- | --- | --- |
-| Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for the active public-default security review. |
+| Template maintenance gate | `env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1` | Passing means the public-default template, render matrix, schema-validator wiring, and security baseline are healthy for maintenance. |
 | Matrix coverage report | `.\scripts\show-render-matrix.ps1 -Format markdown` | Lists the environment and profile entries, values-file resolution, and representative public selections without rendering bundles. |
 | Matrix validation | `.\scripts\validate-render-matrix.ps1` | Renders and validates every public environment and profile matrix entry using temporary output. |
 | Readiness report | `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown` | Shows whether the current machine has the tools needed for the selected validation workflow. |
@@ -109,23 +110,21 @@ For automation reports, record the first failing command, whether the template
 gate passed, and whether the readiness report lists a missing grouped
 requirement such as `kubeconform or kubectl`.
 
-When the template maintenance gate passes and the phase controller reports the
-transition as eligible, the remaining dashboard work is no longer another
-manifest or documentation repair. Treat that state as a phase handoff:
+When the template maintenance gate passes and the manifest has no pending
+`next_phase`, the remaining dashboard work is not another manifest or
+documentation repair. Treat that state as maintenance evidence:
 
-- keep the validation output from the passing
-  `scripts/validate-template.ps1` run as the evidence package
-- confirm `docs/instructions/phase-gates.json` still lists the expected
-  `current_phase`, `next_phase`, and `transition.phase_update_files`
-- run the next automated task as `phase-transition`, not another broad
-  implementation or docs task
-- limit the transition patch to the files listed in
+- keep the validation output from the passing `scripts/validate-template.ps1`
+  run as the evidence package
+- confirm `docs/instructions/phase-gates.json` lists `template-maintenance`, an
+  empty `next_phase`, and an empty `transition_validation_command`
+- select a new explicit phase before routing another phase-transition task
+- keep future phase-transition patches limited to the files listed in
   `transition.phase_update_files`
 
-For this phase, a passing transition validation command means the public-default
+For this phase, a passing validation command means the public-default
 NetworkPolicy posture, Dashboard manual RBAC posture, rendered schema-validator
-wiring, and source/rendered security baseline are ready for the metadata-only
-move back to `template-maintenance`.
+wiring, and source/rendered security baseline remain healthy for maintenance.
 
 ## Render Matrix Evidence Package
 
@@ -159,22 +158,21 @@ public-default package also fails.
 
 ## Phase Transition Readiness
 
-`docs/instructions/phase-gates.json` records `public-default-security-review`
-as the current phase and `template-maintenance` as the selected next phase after
-the review. Its transition validation command is the same template maintenance
-gate:
+`docs/instructions/phase-gates.json` records `template-maintenance` as the
+current phase with no selected next phase after the public-default review. Its
+maintenance validation command is the template maintenance gate:
 
 ```bash
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
-When that command passes, a phase-transition run should only update the phase
-manifest files listed in `transition.phase_update_files`. It should not add new
-platform scope, require live cluster access, introduce private image defaults,
-or commit rendered bundles. Continue using docs-update, maintenance-audit,
-implementation-package, and security-review work to clarify evidence or review
-public-default posture while the project remains in
-`public-default-security-review`.
+When that command passes and `transition_validation_command` is empty, routine
+maintenance should continue without routing a phase-transition. A future
+phase-transition should first select a concrete `next_phase` and validation
+command, then update only the phase manifest files listed in
+`transition.phase_update_files`. It should not add new platform scope, require
+live cluster access, introduce private image defaults, or commit rendered
+bundles.
 
 ## Public Defaults And Values Files
 

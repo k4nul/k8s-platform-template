@@ -1,17 +1,17 @@
 {
   "schema_version": "1.1.0",
   "project": "devops/k8s-platform-template",
-  "current_phase": "public-default-security-review",
-  "next_phase": "template-maintenance",
+  "current_phase": "template-maintenance",
+  "next_phase": "",
   "transition": {
-    "intent": "Complete the scoped public-default security review and return to template maintenance after the validation and posture evidence gates pass.",
-    "mode": "public-default-security-review-ready",
+    "intent": "Keep the public Kubernetes platform template in maintenance after the public-default security review, render matrix, schema-validation wiring, and security baseline gates are stable.",
+    "mode": "template-maintenance-no-pending-transition",
     "validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
-    "transition_validation_command": "env PATH=\"$HOME/.local/bin:$PATH\" pwsh -NoProfile -File scripts/validate-template.ps1",
+    "transition_validation_command": "",
     "phase_update_files": [
       "docs/instructions/phase-gates.json"
     ],
-    "decision_rule": "Route a phase-transition run to template-maintenance only after the public-default security review exit criteria and template validation command pass."
+    "decision_rule": "Select a new next_phase and transition_validation_command before routing another phase-transition."
   },
   "phase_model": [
     {

@@ -72,16 +72,20 @@ function Assert-PhaseTransitionMetadata {
             -Label "Phase gates transition"
     )
 
-    if ($currentPhase -eq "public-default-security-review" -and $nextPhase.Trim() -ne "template-maintenance") {
-        throw "Public-default security review phase must declare next_phase 'template-maintenance' before automated transition routing can resume."
+    if ($currentPhase -eq "public-default-security-review") {
+        if ($nextPhase.Trim() -ne "template-maintenance") {
+            throw "Public-default security review phase must declare next_phase 'template-maintenance' before automated transition routing can resume."
+        }
+
+        if (-not $transitionValidationCommand.Trim()) {
+            throw "Public-default security review phase must declare transition.transition_validation_command before automated transition routing can resume."
+        }
+
+        return
     }
 
-    if (-not $nextPhase.Trim()) {
-        throw "Template maintenance phase must declare next_phase before automated transition routing can resume."
-    }
-
-    if (-not $transitionValidationCommand.Trim()) {
-        throw ("{0} phase must declare transition.transition_validation_command before automated transition routing can resume." -f $currentPhase)
+    if ($currentPhase -eq "template-maintenance" -and $nextPhase.Trim() -and -not $transitionValidationCommand.Trim()) {
+        throw "Template maintenance phase with a selected next_phase must declare transition.transition_validation_command before automated transition routing can resume."
     }
 }
 

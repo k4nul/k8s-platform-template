@@ -94,11 +94,11 @@ Automation and non-interactive shells should use the phase-gate form when
 env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-template.ps1
 ```
 
-When that phase-gate command passes and the phase controller reports
-`public-default-security-review->template-maintenance` as eligible, the next
-maintenance step is a dedicated `phase-transition` run. Do not add private
-image defaults, live cluster requirements, or committed rendered bundles only to
-clear a stale dashboard status after this gate is green.
+The public-default security review has returned to `template-maintenance`, so
+the phase manifest has no pending `next_phase` or transition command. Select a
+new explicit phase before routing another phase-transition run. Do not add
+private image defaults, live cluster requirements, or committed rendered bundles
+only to clear a stale dashboard status after this gate is green.
 Template validation intentionally uses `config/platform-values.env.example` for its smoke render and full render matrix. Inspect the same public matrix before changing profiles or presets:
 
 ```powershell

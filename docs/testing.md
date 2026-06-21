@@ -110,16 +110,14 @@ Use these layers in order when you are bringing up a workstation or reviewing a 
 | Delivery validation | `.\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev` followed by the generated `validate-bundle.ps1` | The reviewable `out/` bundle and its generated helper scripts can validate the rendered files before apply |
 
 The template gate is the continuing maintenance check for this repository. It
-also serves as the active `public-default-security-review` transition evidence
-before the project returns to `template-maintenance`.
+also served as the `public-default-security-review` transition evidence before
+the project returned to `template-maintenance`.
 
-If this command passes while automation still shows
-`kubernetes validation failed` for the
-`public-default-security-review->template-maintenance` path, preserve the
-passing output and route the next automated run to `phase-transition`. At that
-point the validation evidence is green; the remaining work is updating the
-phase metadata listed in `docs/instructions/phase-gates.json`, not broadening
-the validation surface or changing rendered manifests.
+If this command passes while automation still shows `kubernetes validation
+failed`, preserve the passing output and inspect the phase manifest before
+changing manifests. In `template-maintenance` with no pending `next_phase`, a
+new phase-transition should not be routed until a maintainer selects a new
+explicit template scope.
 
 For the maintainer runbook that turns this gate into progress-dashboard
 evidence, see [maintenance.md](maintenance.md).
@@ -196,15 +194,14 @@ The maintenance gate currently covers:
 - render matrix validation for every bundled environment preset and every
   public profile shape
 
-The current phase manifest records `public-default-security-review` as active
-and `template-maintenance` as the next phase after the review evidence remains
-green. See [maintenance.md](maintenance.md) for the current review focus,
-transition evidence path, and guardrails.
+The current phase manifest records `template-maintenance` with no pending next
+phase after the public-default review evidence remained green. See
+[maintenance.md](maintenance.md) for the current maintenance validation path and
+guardrails.
 
-After this gate passes, keep profile and environment coverage stable while the
-phase-transition run updates only the project metadata listed in the phase
-manifest. Do not introduce a live cluster requirement, private image default, or
-committed rendered bundle as part of the phase transition.
+After this gate passes, keep profile and environment coverage stable. Do not
+introduce a live cluster requirement, private image default, or committed
+rendered bundle as part of routine maintenance or a future phase transition.
 
 ## Public-Default Render Matrix
 

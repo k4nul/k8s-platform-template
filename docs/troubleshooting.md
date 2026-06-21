@@ -54,7 +54,7 @@ Use `-SkipWorkstationValidation` only when the narrower repository-only scope is
 
 ## Automation Still Reports Kubernetes Validation Failed
 
-The completed `schema-security-baseline` handoff and the active
+The completed `schema-security-baseline` handoff and completed
 `public-default-security-review` phase both use the template gate, not the
 broader repository workflow:
 
@@ -63,9 +63,8 @@ env PATH="$HOME/.local/bin:$PATH" pwsh -NoProfile -File scripts/validate-templat
 ```
 
 If automation or a progress dashboard still reports `kubernetes validation
-failed`, including the phase status
-`public-default-security-review->template-maintenance`, rerun that exact command
-from the repository root and compare it with the broader repository command:
+failed`, rerun that exact command from the repository root and compare it with
+the broader repository command:
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
@@ -82,12 +81,10 @@ environment and profile matrix entry would be rendered, then use
 to separate missing local tools from template render failures before changing
 manifests.
 
-If the exact phase-gate command passes and the phase controller marks the
-transition eligible, stop triaging Kubernetes validation. The correct follow-up
-is a `phase-transition` run that updates only the phase files named in
-`docs/instructions/phase-gates.json`. Do not change manifests, values files, or
-rendered bundles only to clear a stale dashboard status after this gate is
-green.
+If the exact phase-gate command passes, stop triaging Kubernetes validation and
+inspect `docs/instructions/phase-gates.json`. In `template-maintenance` with no
+pending `next_phase`, do not change manifests, values files, or rendered bundles
+only to clear a stale dashboard status after this gate is green.
 
 In JSON mode, the readiness report includes `MissingRequiredToolRequirements`,
 `SchemaValidatorRequirement`, and `HelmRequirement`. Use those grouped fields
