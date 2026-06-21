@@ -168,6 +168,45 @@ function Add-RenderedManifestValidationFailure {
     }) | Out-Null
 }
 
+function New-RenderedManifestValidationState {
+    return [PSCustomObject]@{
+        Validated = New-Object System.Collections.Generic.List[object]
+        Skipped = New-Object System.Collections.Generic.List[object]
+        Failed = New-Object System.Collections.Generic.List[object]
+    }
+}
+
+function Add-RenderedManifestSkipIfRequired {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$State,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target,
+
+        [switch]$ValidateCrdBackedResources
+    )
+
+    if ($Target.RequiresCrd -and -not $ValidateCrdBackedResources) {
+        Add-RenderedManifestSkip -Skipped $State.Skipped -Target $Target
+        return $true
+    }
+
+    return $false
+}
+
+function Test-RenderedManifestTargetHasFailure {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$State,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    return (@($State.Failed | Where-Object { $_.File -eq $Target.RelativePath }).Count -gt 0)
+}
+
 function Write-RenderedManifestValidationResult {
     param(
         [Parameter(Mandatory = $true)]
@@ -230,15 +269,12 @@ function Invoke-RenderedManifestStructuralPreflight {
         [switch]$ValidateCrdBackedResources
     )
 
-    $validated = New-Object System.Collections.Generic.List[object]
-    $skipped = New-Object System.Collections.Generic.List[object]
-    $failed = New-Object System.Collections.Generic.List[object]
+    $state = New-RenderedManifestValidationState
 
     Write-Host "Built-in rendered manifest structural preflight: apiVersion, kind, and metadata.name"
 
     foreach ($target in $Targets) {
-        if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
-            Add-RenderedManifestSkip -Skipped $skipped -Target $target
+        if (Add-RenderedManifestSkipIfRequired -State $state -Target $target -ValidateCrdBackedResources:$ValidateCrdBackedResources) {
             continue
         }
 
@@ -247,7 +283,7 @@ function Invoke-RenderedManifestStructuralPreflight {
 
         if ($documents.Count -eq 0) {
             Add-RenderedManifestValidationFailure `
-                -Failed $failed `
+                -Failed $state.Failed `
                 -Target $target `
                 -Message "YAML file did not contain a Kubernetes document."
             continue
@@ -273,21 +309,21 @@ function Invoke-RenderedManifestStructuralPreflight {
 
             if ($missingFields.Count -gt 0) {
                 Add-RenderedManifestValidationFailure `
-                    -Failed $failed `
+                    -Failed $state.Failed `
                     -Target $target `
                     -Message ("Document {0} is missing: {1}" -f $documentIndex, ($missingFields -join ", "))
             }
         }
 
-        if ($failed.Count -eq 0 -or @($failed | Where-Object { $_.File -eq $target.RelativePath }).Count -eq 0) {
-            Add-RenderedManifestValidationSuccess -Validated $validated -Target $target
+        if (-not (Test-RenderedManifestTargetHasFailure -State $state -Target $target)) {
+            Add-RenderedManifestValidationSuccess -Validated $state.Validated -Target $target
         }
     }
 
     Write-RenderedManifestValidationResult `
-        -Validated $validated `
-        -Skipped $skipped `
-        -Failed $failed `
+        -Validated $state.Validated `
+        -Skipped $state.Skipped `
+        -Failed $state.Failed `
         -ValidatedLabel "Structurally validated" `
         -FailureMessage "Rendered manifest structural preflight failed" `
         -SuccessMessage "Rendered manifest structural preflight completed successfully." `
@@ -363,9 +399,7 @@ Add-RenderedYamlValidationTargets `
     -SearchRoot $bootstrapSecretRoot `
     -Category "Bootstrap secret templates"
 
-$validated = New-Object System.Collections.Generic.List[object]
-$skipped = New-Object System.Collections.Generic.List[object]
-$failed = New-Object System.Collections.Generic.List[object]
+$state = New-RenderedManifestValidationState
 $validator = Get-RenderedManifestValidator -RequestedValidator $SchemaValidator -Strict:$Strict
 
 if (-not $validator) {
@@ -378,28 +412,27 @@ if (-not $validator) {
 Write-Host ("Rendered manifest validator: {0}" -f $validator)
 
 foreach ($target in $validationTargets) {
-    if ($target.RequiresCrd -and -not $ValidateCrdBackedResources) {
-        Add-RenderedManifestSkip -Skipped $skipped -Target $target
+    if (Add-RenderedManifestSkipIfRequired -State $state -Target $target -ValidateCrdBackedResources:$ValidateCrdBackedResources) {
         continue
     }
 
     $output = Invoke-RenderedManifestValidator -Validator $validator -File $target.File
 
     if ($LASTEXITCODE -eq 0) {
-        Add-RenderedManifestValidationSuccess -Validated $validated -Target $target
+        Add-RenderedManifestValidationSuccess -Validated $state.Validated -Target $target
     }
     else {
         Add-RenderedManifestValidationFailure `
-            -Failed $failed `
+            -Failed $state.Failed `
             -Target $target `
             -Message $output.Trim()
     }
 }
 
 Write-RenderedManifestValidationResult `
-    -Validated $validated `
-    -Skipped $skipped `
-    -Failed $failed `
+    -Validated $state.Validated `
+    -Skipped $state.Skipped `
+    -Failed $state.Failed `
     -ValidatedLabel "Validated" `
     -FailureMessage "Rendered manifest validation failed." `
     -SuccessMessage "Rendered manifest validation completed successfully."
