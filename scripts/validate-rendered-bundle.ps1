@@ -195,6 +195,29 @@ function Add-RenderedManifestSkipIfRequired {
     return $false
 }
 
+function Invoke-RenderedManifestTargetValidation {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$State,
+
+        [Parameter(Mandatory = $true)]
+        [System.Collections.Generic.List[object]]$Targets,
+
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$ValidateTarget,
+
+        [switch]$ValidateCrdBackedResources
+    )
+
+    foreach ($target in $Targets) {
+        if (Add-RenderedManifestSkipIfRequired -State $State -Target $target -ValidateCrdBackedResources:$ValidateCrdBackedResources) {
+            continue
+        }
+
+        & $ValidateTarget -State $State -Target $target
+    }
+}
+
 function Test-RenderedManifestTargetHasFailure {
     param(
         [Parameter(Mandatory = $true)]
@@ -273,20 +296,28 @@ function Invoke-RenderedManifestStructuralPreflight {
 
     Write-Host "Built-in rendered manifest structural preflight: apiVersion, kind, and metadata.name"
 
-    foreach ($target in $Targets) {
-        if (Add-RenderedManifestSkipIfRequired -State $state -Target $target -ValidateCrdBackedResources:$ValidateCrdBackedResources) {
-            continue
-        }
+    Invoke-RenderedManifestTargetValidation `
+        -State $state `
+        -Targets $Targets `
+        -ValidateCrdBackedResources:$ValidateCrdBackedResources `
+        -ValidateTarget {
+        param(
+            [Parameter(Mandatory = $true)]
+            [object]$State,
 
-        $content = Get-Content -Path $target.File -Raw
+            [Parameter(Mandatory = $true)]
+            [object]$Target
+        )
+
+        $content = Get-Content -Path $Target.File -Raw
         $documents = @(Get-YamlDocumentBlocks -Content $content)
 
         if ($documents.Count -eq 0) {
             Add-RenderedManifestValidationFailure `
-                -Failed $state.Failed `
-                -Target $target `
+                -Failed $State.Failed `
+                -Target $Target `
                 -Message "YAML file did not contain a Kubernetes document."
-            continue
+            return
         }
 
         $documentIndex = 0
@@ -309,14 +340,14 @@ function Invoke-RenderedManifestStructuralPreflight {
 
             if ($missingFields.Count -gt 0) {
                 Add-RenderedManifestValidationFailure `
-                    -Failed $state.Failed `
-                    -Target $target `
+                    -Failed $State.Failed `
+                    -Target $Target `
                     -Message ("Document {0} is missing: {1}" -f $documentIndex, ($missingFields -join ", "))
             }
         }
 
-        if (-not (Test-RenderedManifestTargetHasFailure -State $state -Target $target)) {
-            Add-RenderedManifestValidationSuccess -Validated $state.Validated -Target $target
+        if (-not (Test-RenderedManifestTargetHasFailure -State $State -Target $Target)) {
+            Add-RenderedManifestValidationSuccess -Validated $State.Validated -Target $Target
         }
     }
 
@@ -370,35 +401,45 @@ function Add-RenderedYamlValidationTargets {
     }
 }
 
-$root = (Resolve-Path -Path $RenderedPath).Path
-$k8sRoot = Join-Path $root "k8s"
-if (-not (Test-Path -Path $k8sRoot -PathType Container)) {
-    throw ("Rendered bundle does not contain a k8s directory: {0}" -f $k8sRoot)
+function Get-RenderedManifestValidationTargets {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Root
+    )
+
+    $k8sRoot = Join-Path $Root "k8s"
+    if (-not (Test-Path -Path $k8sRoot -PathType Container)) {
+        throw ("Rendered bundle does not contain a k8s directory: {0}" -f $k8sRoot)
+    }
+
+    $targets = New-Object System.Collections.Generic.List[object]
+
+    Add-RenderedYamlValidationTargets `
+        -Targets $targets `
+        -Root $Root `
+        -SearchRoot $k8sRoot `
+        -Category "Kubernetes manifests" `
+        -DetectCrdBackedResources
+
+    $bootstrapNamespaceRoot = Join-Path $Root "cluster-bootstrap\namespaces"
+    Add-RenderedYamlValidationTargets `
+        -Targets $targets `
+        -Root $Root `
+        -SearchRoot $bootstrapNamespaceRoot `
+        -Category "Bootstrap namespace templates"
+
+    $bootstrapSecretRoot = Join-Path $Root "cluster-bootstrap\secrets"
+    Add-RenderedYamlValidationTargets `
+        -Targets $targets `
+        -Root $Root `
+        -SearchRoot $bootstrapSecretRoot `
+        -Category "Bootstrap secret templates"
+
+    return $targets
 }
 
-$validationTargets = New-Object System.Collections.Generic.List[object]
-
-Add-RenderedYamlValidationTargets `
-    -Targets $validationTargets `
-    -Root $root `
-    -SearchRoot $k8sRoot `
-    -Category "Kubernetes manifests" `
-    -DetectCrdBackedResources
-
-$bootstrapNamespaceRoot = Join-Path $root "cluster-bootstrap\namespaces"
-Add-RenderedYamlValidationTargets `
-    -Targets $validationTargets `
-    -Root $root `
-    -SearchRoot $bootstrapNamespaceRoot `
-    -Category "Bootstrap namespace templates"
-
-$bootstrapSecretRoot = Join-Path $root "cluster-bootstrap\secrets"
-Add-RenderedYamlValidationTargets `
-    -Targets $validationTargets `
-    -Root $root `
-    -SearchRoot $bootstrapSecretRoot `
-    -Category "Bootstrap secret templates"
-
+$root = (Resolve-Path -Path $RenderedPath).Path
+$validationTargets = Get-RenderedManifestValidationTargets -Root $root
 $state = New-RenderedManifestValidationState
 $validator = Get-RenderedManifestValidator -RequestedValidator $SchemaValidator -Strict:$Strict
 
@@ -411,20 +452,28 @@ if (-not $validator) {
 
 Write-Host ("Rendered manifest validator: {0}" -f $validator)
 
-foreach ($target in $validationTargets) {
-    if (Add-RenderedManifestSkipIfRequired -State $state -Target $target -ValidateCrdBackedResources:$ValidateCrdBackedResources) {
-        continue
-    }
+Invoke-RenderedManifestTargetValidation `
+    -State $state `
+    -Targets $validationTargets `
+    -ValidateCrdBackedResources:$ValidateCrdBackedResources `
+    -ValidateTarget {
+    param(
+        [Parameter(Mandatory = $true)]
+        [object]$State,
 
-    $output = Invoke-RenderedManifestValidator -Validator $validator -File $target.File
+        [Parameter(Mandatory = $true)]
+        [object]$Target
+    )
+
+    $output = Invoke-RenderedManifestValidator -Validator $validator -File $Target.File
 
     if ($LASTEXITCODE -eq 0) {
-        Add-RenderedManifestValidationSuccess -Validated $state.Validated -Target $target
+        Add-RenderedManifestValidationSuccess -Validated $State.Validated -Target $Target
     }
     else {
         Add-RenderedManifestValidationFailure `
-            -Failed $state.Failed `
-            -Target $target `
+            -Failed $State.Failed `
+            -Target $Target `
             -Message $output.Trim()
     }
 }
