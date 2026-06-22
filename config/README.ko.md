@@ -71,3 +71,22 @@
 3. 로컬 compose 를 쓸 경우 `service-runtime.env.example` 수정
 4. 번들 렌더링 또는 검증
 5. 그 다음에 전체 구조가 필요할 때만 프로필이나 카탈로그 수정
+
+## 검증 값 파일
+
+환경 프리셋은 사이트별 `ValuesFile`과 공개 검증용 `ValidationValuesFile`을 모두 정의할 수 있습니다. 명시적인 `-ValuesFile`을 넘기지 않으면 저장소 검증은 `ValidationValuesFile`을 우선 사용하므로, 포함된 프리셋은 기본적으로 `config/platform-values.env.example`로 검증됩니다.
+
+생성한 값 파일을 수정한 뒤에는 그 파일을 명시적으로 검증하세요.
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
+프로필이나 프리셋 변경 전후에는 렌더 매트릭스도 함께 확인합니다.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+```

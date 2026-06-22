@@ -56,8 +56,21 @@
   -ValuesFile config\platform-values.dev.env
 ```
 
-프리셋 매트릭스만 직접 실행할 수도 있습니다.
+전체 렌더 매트릭스만 직접 실행할 수도 있습니다. 이 명령은 환경 프리셋 항목을 먼저 검증한 뒤 `config/profiles/` 아래의 모든 프로필 항목을 검증합니다.
 
 ```powershell
 .\scripts\validate-render-matrix.ps1
+```
+
+번들을 렌더링하지 않고 같은 매트릭스 범위와 값 파일 해석만 확인하려면 다음 명령을 사용합니다.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+```
+
+생성한 값 파일 하나를 전체 공개 매트릭스에 대입해 확인하려면 두 명령 모두에 `-ValuesFile`을 명시합니다.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -ValuesFile config\platform-values.dev.env -Format markdown
+.\scripts\validate-render-matrix.ps1 -ValuesFile config\platform-values.dev.env
 ```

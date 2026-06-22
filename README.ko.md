@@ -77,6 +77,21 @@
 
 이 명령은 공개 기본값으로 환경 프리셋과 프로필 렌더링 매트릭스를 함께 검증합니다. 자세한 매트릭스 동작, 스키마 검증기 동작, 보안 기준 검사는 [docs/testing.md](docs/testing.md)를 참고하세요. 로컬 도구 누락으로 실패한다면 [docs/troubleshooting.md](docs/troubleshooting.md)에서 템플릿 문제와 워크스테이션 준비 문제를 구분하세요.
 
+프로필이나 환경 프리셋을 바꾸기 전에는 같은 공개 매트릭스를 먼저 확인합니다.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+```
+
+프리셋 기반 저장소 검증은 별도 값 파일을 넘기지 않으면 프리셋의 공개 `ValidationValuesFile`을 사용합니다. 생성한 값 파일을 수정한 뒤에는 그 파일을 명시적으로 검증하세요.
+
+```powershell
+.\scripts\invoke-repository-validation.ps1 `
+  -EnvironmentPreset dev `
+  -ValuesFile config\platform-values.dev.env
+```
+
 5. 번들 렌더링:
 
 ```powershell
@@ -105,8 +120,11 @@ docker compose --env-file ..\..\config\service-runtime.env.example up -d
 
 ```powershell
 .\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev
+.\scripts\invoke-repository-validation.ps1 -EnvironmentPreset dev -ValuesFile config\platform-values.dev.env
 .\scripts\invoke-bundle-delivery.ps1 -EnvironmentPreset dev
 ```
+
+첫 번째 검증 명령은 프리셋의 공개 `ValidationValuesFile`로 저장소 흐름을 확인합니다. 두 번째 형식은 수정한 `config/platform-values.dev.env` 같은 사이트별 값 파일을 전달해 전달 전에 환경 값을 검증할 때 사용합니다.
 
 렌더링된 번들에는 `k8s/`, `services/`, 계획 문서, 준비 상태 문서가 `out/` 아래에 생성됩니다.
 
@@ -141,6 +159,9 @@ Jenkins 파이프라인, CI/CD, Job DSL 자산은 분리된 `../jenkins-pipeline
 ## 추가로 읽으면 좋은 문서
 
 - 빠른 시작: [QUICKSTART.ko.md](QUICKSTART.ko.md)
+- 검증과 테스트: [docs/testing.md](docs/testing.md)
+- 템플릿 유지보수 검증: [docs/maintenance.md](docs/maintenance.md)
+- 검증 문제 해결: [docs/troubleshooting.md](docs/troubleshooting.md)
 - 배포 환경 메모: [DEPLOYMENT_ENV.md](DEPLOYMENT_ENV.md)
 - 환경 체크리스트: [ENV_CHECKLIST.md](ENV_CHECKLIST.md)
 - 운영 메모: [OPERATIONS_RUNBOOK.md](OPERATIONS_RUNBOOK.md)

@@ -36,3 +36,14 @@
 프로필을 골랐다고 해서 끝까지 그대로 고정되는 것은 아닙니다. 명령줄 인자로 애플리케이션이나 데이터 서비스를 추가하거나 빼면서 세부 구성을 계속 조정할 수 있습니다.
 
 각 프로필은 공개 기본값으로 `scripts\validate-render-matrix.ps1`에서 검증됩니다. 모든 `config/profiles/*.psd1` 파일은 비어 있는 목록이라도 `ValidationApplications`와 `ValidationDataServices`를 명시해야 하며, 이렇게 해야 프로필 소유 정보와 검증 범위가 함께 유지됩니다. Jenkins 자산까지 렌더링해야 하는 프로필은 `ValidationIncludeJenkins`를 사용할 수 있지만, 기본 공개 프로필에서는 꺼져 있습니다.
+
+프로필을 추가하거나 바꿀 때는 공개 검증 선택값을 같은 변경에 포함하고 다음 명령을 실행합니다.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+```
+
+프로필 매트릭스의 `ValidationApplications`와 `ValidationDataServices`는 대표 공개 입력입니다. 프로필이 렌더링할 수 있는 모든 Kubernetes 또는 service 디렉터리를 전부 나열할 필요는 없습니다. 예를 들어 프로필은 `K8sDirectories`로 추가 플랫폼 디렉터리를 포함하면서도 검증 입력은 작고 반복 가능한 공개 조합으로 유지할 수 있습니다.
+
+Kubernetes Dashboard 샘플 viewer나 VPA 예제 오브젝트 같은 선택형 후속 매니페스트는 플랫폼 계획에 표시되지만 기본 생성 번들에는 복사되지 않습니다.
