@@ -19,6 +19,7 @@
 - `Profile`: 기본 번들 프로필
 - `Applications`: 기본 애플리케이션 선택
 - `DataServices`: 기본 데이터 서비스 선택
+- `IncludeJenkins`: 검증과 번들 생성 워크플로우에서 Jenkins 자산 렌더링을 포함할지 정하는 선택값
 - `OutputPath`: 번들 생성 워크플로우의 기본 출력 경로
 - `ArchivePath`: 번들 생성 또는 승격 워크플로우의 기본 ZIP 경로
 - `PromotionExtractPath`: 번들 승격 워크플로우의 기본 압축 해제 경로
@@ -44,7 +45,9 @@
 
 ## 검증 매트릭스
 
-템플릿 검증은 `config/environments/*.psd1`의 모든 프리셋을 환경 매트릭스 항목으로 렌더링합니다. 값 파일은 명시적인 `-ValuesFile`, `ValidationValuesFile`, `ValuesFile`, `config/platform-values.env.example` 순서로 결정됩니다.
+템플릿 검증은 `config/environments/*.psd1`의 모든 프리셋을 환경 매트릭스 항목으로 렌더링하지만, 템플릿 게이트는 명시적으로 공개 값 파일을 전달하므로 모든 항목이 `config/platform-values.env.example`을 사용합니다.
+
+`validate-render-matrix.ps1`를 직접 실행할 때는 환경 값 파일이 명시적인 `-ValuesFile`, `ValidationValuesFile`, `ValuesFile`, `config/platform-values.env.example` 순서로 결정됩니다.
 
 포함된 프리셋은 `ValidationValuesFile`을 `config/platform-values.env.example`로 지정합니다. 그래서 공개 검증은 로컬 `platform-values.<env>.env` 파일에 들어갈 수 있는 사이트별 호스트명, 스토리지 경로, 비밀값 자리표시에 의존하지 않습니다.
 
@@ -61,6 +64,8 @@
 ```powershell
 .\scripts\validate-render-matrix.ps1
 ```
+
+환경 항목은 프리셋의 `IncludeJenkins` 값도 매트릭스로 전달합니다. 프리셋에서 Jenkins 렌더링을 켰다면 번들 생성 전에 매트릭스로 함께 검토하세요.
 
 번들을 렌더링하지 않고 같은 매트릭스 범위와 값 파일 해석만 확인하려면 다음 명령을 사용합니다.
 

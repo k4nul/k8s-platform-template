@@ -214,6 +214,7 @@ rendered bundle as part of routine maintenance or a future phase transition.
 - Each bundled environment preset points `ValidationValuesFile` at `config/platform-values.env.example`.
 - Direct `validate-render-matrix.ps1` runs resolve environment values in this order: an explicit `-ValuesFile` override, `ValidationValuesFile`, `ValuesFile`, then the default public values file.
 - Environment entries run before profile entries so preset drift is reported before profile-only coverage.
+- Environment entries also forward the preset `IncludeJenkins` value into the rendered validation call, so preset-level Jenkins rendering changes should be reviewed in the matrix before delivery.
 - Profile entries cover every file under `config/profiles/*.psd1`.
 - Profile entries read `ValidationApplications` and `ValidationDataServices` from each profile file, keeping the public render-validation selection beside the profile owner metadata.
 - The matrix fails if a profile exists in `config/profiles/` but does not declare explicit public validation selections.

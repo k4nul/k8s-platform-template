@@ -19,6 +19,7 @@ This directory contains reusable environment presets that reduce repeated argume
 - `Profile`: default bundle profile
 - `Applications`: default application selection
 - `DataServices`: default data service selection
+- `IncludeJenkins`: optional Jenkins asset rendering flag for validation and delivery workflows
 - `OutputPath`: default rendered bundle output path for delivery workflows
 - `ArchivePath`: default ZIP archive path for delivery or promotion workflows
 - `PromotionExtractPath`: default extraction path for promotion workflows
@@ -68,6 +69,9 @@ Run the full render matrix directly with:
 
 That command validates environment preset entries first, then every profile entry
 under `config/profiles/`.
+Environment entries also carry the preset `IncludeJenkins` value into the
+matrix, so a preset that enables Jenkins rendering should be reviewed with the
+matrix before delivery.
 
 Inspect the same matrix without rendering bundles with:
 

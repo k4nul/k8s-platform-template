@@ -126,6 +126,15 @@ docker compose --env-file ..\..\config\service-runtime.env.example up -d
 
 첫 번째 검증 명령은 프리셋의 공개 `ValidationValuesFile`로 저장소 흐름을 확인합니다. 두 번째 형식은 수정한 `config/platform-values.dev.env` 같은 사이트별 값 파일을 전달해 전달 전에 환경 값을 검증할 때 사용합니다.
 
+프로필이나 환경 프리셋을 바꿨다면 번들 생성 전에 공개 매트릭스도 확인하세요.
+
+```powershell
+.\scripts\show-render-matrix.ps1 -Format markdown
+.\scripts\validate-render-matrix.ps1
+```
+
+`validate-render-matrix.ps1 -ValuesFile config\platform-values.dev.env`처럼 값 파일을 명시하면 그 파일이 모든 환경과 프로필 매트릭스 항목에 적용됩니다. 생성한 값 파일 하나를 넓게 확인할 때만 이 방식을 사용하고, 재사용 가능한 템플릿 유지보수에서는 공개 기본값 매트릭스를 대체하지 마세요.
+
 렌더링된 번들에는 `k8s/`, `services/`, 계획 문서, 준비 상태 문서가 `out/` 아래에 생성됩니다.
 
 ### CI/CD 잡까지 만들고 싶을 때
