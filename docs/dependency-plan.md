@@ -1,6 +1,6 @@
 # Dependency Plan
 
-Last reviewed: 2026-06-21
+Last reviewed: 2026-06-22
 
 This project is a PowerShell-first Kubernetes template. It does not have a
 language package manifest or lockfile today, so dependency planning focuses on
@@ -234,6 +234,17 @@ pwsh -NoProfile -File scripts/validate-render-matrix.ps1 -FailOnHighSecurityBase
 
 ## Changes Made And Validation
 
+The 2026-06-22 dependency-plan pass aligned validation-readiness reporting with
+the repository's schema-validator selection order. When both `kubeconform` and
+`kubectl` are installed, `show-validation-readiness.ps1` now advertises the
+preferred offline `kubeconform` available-check lane instead of the `kubectl`
+fallback lane. A focused readiness test uses local fake tool commands to verify
+that a workstation with `kubeconform`, `kubectl`, and `helm` reports
+`full-bundle-validation-available`, lists `kubeconform` before `kubectl`, and
+does not prefer the fallback dry-run message. This pass did not change public
+image tags, Helm chart references, runtime dependencies, lockfiles, rendered
+bundles, or generated artifacts.
+
 The 2026-06-21 dependency-plan pass extended Helm dependency reporting with
 local values-file evidence. `show-service-dependency-plan.ps1` now includes each
 selected Helm entry's `ValuesRelativePath` and `ValuesFileStatus` in JSON output
@@ -296,6 +307,21 @@ pwsh -NoProfile -File scripts/show-service-dependency-plan.ps1 -Format markdown
 pwsh -NoProfile -File tests/render-platform-assets.Tests.ps1
 tmpdir=$(mktemp -d /tmp/k8s-bundle-validate-XXXXXX); pwsh -NoProfile -File scripts/render-platform-assets.ps1 -OutputPath "$tmpdir" -ValuesFile config/platform-values.env.example -Version 0.0.0-check -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -FailOnUnresolvedToken >/tmp/render-bundle.out && pwsh -NoProfile -File "$tmpdir/validate-bundle.ps1" -BundleRoot "$tmpdir"; rc=$?; rm -rf "$tmpdir"; cat /tmp/render-bundle.out; exit $rc
 ```
+
+On 2026-06-22, `tests/show-validation-readiness.Tests.ps1` passed with four
+tests covering grouped missing tool requirements, markdown requirement roles,
+preferred `kubeconform` reporting when both schema validators are present, and
+relative path resolution. `validate-template.ps1` completed successfully after
+adding the focused readiness regression to the template gate. It emitted the
+expected non-strict warnings because `kubeconform`, `kubectl`, and `helm` were
+not installed, then completed rendered structural preflight, security baseline
+checks, the render matrix, and catalog validation successfully.
+`show-validation-readiness.ps1` reported `repository-only-validation-available`,
+missing requirement groups `kubeconform or kubectl, helm`, and missing direct
+required tool `helm` for the selected `web-platform` bundle.
+`invoke-repository-validation.ps1 -EnvironmentPreset dev` reached and completed
+the nested template validation, then failed at strict workstation validation
+because required tools `helm` and `kubectl` are not installed on this host.
 
 On 2026-06-21, `tests/show-service-dependency-plan.Tests.ps1` passed with two
 tests covering selected service image provenance in markdown output and Helm

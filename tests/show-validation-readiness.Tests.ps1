@@ -115,6 +115,66 @@ function Invoke-WithEmptyToolPath {
     }
 }
 
+function Invoke-WithFakeToolPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$Tools,
+
+        [Parameter(Mandatory = $true)]
+        [scriptblock]$Body
+    )
+
+    $previousPath = $env:PATH
+    $toolPath = Join-Path ([System.IO.Path]::GetTempPath()) ("validation-readiness-tools-" + [Guid]::NewGuid().ToString("N"))
+
+    try {
+        New-Item -ItemType Directory -Path $toolPath -Force | Out-Null
+
+        foreach ($tool in $Tools) {
+            if ($IsWindows) {
+                $toolFile = Join-Path $toolPath ("{0}.cmd" -f $tool)
+                $scriptContent = switch ($tool) {
+                    "helm" {
+                        "@echo off`r`nif `"%1`"==`"repo`" if `"%2`"==`"list`" (`r`n  echo []`r`n) else (`r`n  echo helm test-version`r`n)`r`n"
+                    }
+                    "kubectl" {
+                        "@echo off`r`nif `"%1`"==`"version`" (`r`n  echo kubectl test-version`r`n) else (`r`n  exit /b 1`r`n)`r`n"
+                    }
+                    default {
+                        "@echo off`r`necho $tool test-version`r`n"
+                    }
+                }
+                [System.IO.File]::WriteAllText($toolFile, $scriptContent)
+            }
+            else {
+                $toolFile = Join-Path $toolPath $tool
+                $scriptContent = switch ($tool) {
+                    "helm" {
+                        "#!/bin/sh`nif [ `"x`$1`" = `"xrepo`" ] && [ `"x`$2`" = `"xlist`" ]; then echo '[]'; else echo 'helm test-version'; fi`n"
+                    }
+                    "kubectl" {
+                        "#!/bin/sh`nif [ `"x`$1`" = `"xversion`" ]; then echo 'kubectl test-version'; else exit 1; fi`n"
+                    }
+                    default {
+                        "#!/bin/sh`necho '$tool test-version'`n"
+                    }
+                }
+                [System.IO.File]::WriteAllText($toolFile, $scriptContent)
+                & /bin/chmod +x $toolFile
+            }
+        }
+
+        $env:PATH = $toolPath
+        & $Body
+    }
+    finally {
+        $env:PATH = $previousPath
+        if (Test-Path -LiteralPath $toolPath) {
+            Remove-Item -LiteralPath $toolPath -Recurse -Force
+        }
+    }
+}
+
 $repoRoot = (Resolve-Path -Path (Join-Path $PSScriptRoot "..")).Path
 $readinessScript = Join-Path $repoRoot "scripts\show-validation-readiness.ps1"
 $publicValuesFile = Join-Path $repoRoot "config\platform-values.env.example"
@@ -248,6 +308,41 @@ Invoke-Test -Name "Readiness markdown shows grouped missing requirements" -Body 
         -Content $markdown `
         -Expected "-ValidateCrdBackedResources" `
         -Message "Markdown should still show the opt-in CRD-backed validation command."
+}
+
+Invoke-Test -Name "Readiness prefers kubeconform available check when both schema validators exist" -Body {
+    $document = Invoke-WithFakeToolPath -Tools @("kubectl", "kubeconform", "helm") -Body {
+        $json = & $readinessScript `
+            -RepoRoot $repoRoot `
+            -ValuesFile $publicValuesFile `
+            -Profile "web-platform" `
+            -Applications @("nginx-web", "httpbin", "whoami") `
+            -DataServices @("redis") `
+            -Format json | Out-String
+
+        return ($json | ConvertFrom-Json)
+    }
+
+    Assert-Equal `
+        -Expected "full-bundle-validation-available" `
+        -Actual $document.ReadinessStatus `
+        -Message "With schema and Helm tools present, readiness should be full."
+    Assert-Equal `
+        -Expected $true `
+        -Actual $document.SchemaValidatorRequirement.Satisfied `
+        -Message "The schema-validator requirement should be satisfied."
+    Assert-SequenceEqual `
+        -Expected @("kubeconform", "kubectl") `
+        -Actual @($document.SchemaValidatorRequirement.InstalledValidators) `
+        -Message "Installed schema validators should list the preferred offline validator first."
+    Assert-Contains `
+        -Content ([string]($document.AvailableChecks -join "`n")) `
+        -Expected "Rendered raw manifest and bootstrap YAML schema validation via .\scripts\validate-platform-assets.ps1 using kubeconform" `
+        -Message "Available checks should advertise the kubeconform validation lane when it is present."
+    Assert-NotContains `
+        -Content ([string]($document.AvailableChecks -join "`n")) `
+        -Unexpected "Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1 using kubectl" `
+        -Message "Available checks should not prefer kubectl when kubeconform is available."
 }
 
 Invoke-Test -Name "Readiness resolves relative input paths from the repository root" -Body {

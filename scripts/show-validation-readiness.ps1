@@ -311,11 +311,11 @@ $availableChecks.Add("Service catalog, build, config, pipeline, and runtime vali
 $availableChecks.Add("Placeholder scanning via .\scripts\check-placeholders.ps1 -Path .") | Out-Null
 
 if ($requiresRenderedManifestValidation) {
-    if ($kubectlReport.Installed) {
-        $availableChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1 using kubectl") | Out-Null
-    }
-    elseif ($kubeconformReport.Installed) {
+    if ($kubeconformReport.Installed) {
         $availableChecks.Add("Rendered raw manifest and bootstrap YAML schema validation via .\scripts\validate-platform-assets.ps1 using kubeconform") | Out-Null
+    }
+    elseif ($kubectlReport.Installed) {
+        $availableChecks.Add("Rendered raw manifest and bootstrap YAML dry-run validation via .\scripts\validate-platform-assets.ps1 using kubectl") | Out-Null
     }
     else {
         $blockedChecks.Add("Rendered raw manifest and bootstrap YAML schema validation is blocked until kubeconform or kubectl is installed.") | Out-Null
