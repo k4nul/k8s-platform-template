@@ -50,8 +50,10 @@ docker compose down
 
 `config/service-runtime.env.example` 에서 다음 값을 바꿀 수 있습니다.
 
-- 로컬 호스트 포트
+- 루프백으로 제한된 로컬 호스트 포트
 - Adminer 기본 데이터베이스 대상
+
+compose 파일은 기본적으로 호스트 포트를 `127.0.0.1` 에 바인딩하므로 로컬 예제가 모든 호스트 인터페이스에 공개되지 않습니다.
 
 런타임 변수와 compose 기대값을 자동 요약으로 보고 싶다면:
 

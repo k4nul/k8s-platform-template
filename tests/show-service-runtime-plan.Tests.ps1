@@ -73,6 +73,22 @@ Invoke-Test -Name "Runtime markdown shows public image references from the catal
         -Message "Runtime markdown should not hide cataloged public images."
 }
 
+Invoke-Test -Name "Runtime markdown shows loopback-scoped compose ports" -Body {
+    $markdown = & $runtimePlanScript -RepoRoot $repoRoot -Format markdown | Out-String
+
+    foreach ($portBinding in @(
+        '127.0.0.1:${ADMINER_HOST_PORT}:8080',
+        '127.0.0.1:${HTTPBIN_HOST_PORT}:8080',
+        '127.0.0.1:${NGINX_WEB_HOST_PORT}:80',
+        '127.0.0.1:${WHOAMI_HOST_PORT}:80'
+    )) {
+        Assert-Contains `
+            -Content $markdown `
+            -Expected $portBinding `
+            -Message "Runtime markdown should show loopback-scoped compose port bindings."
+    }
+}
+
 Invoke-Test -Name "Runtime text output shows selected public image references" -Body {
     $text = & $runtimePlanScript -RepoRoot $repoRoot -ServiceNames nginx-web,whoami | Out-String
 

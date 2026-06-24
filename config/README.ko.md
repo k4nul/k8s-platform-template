@@ -26,7 +26,7 @@
 
 로컬 Docker Compose 예제에서 사용하는 값입니다.
 
-- 로컬 호스트 포트
+- 루프백으로 제한된 로컬 호스트 포트
 - Adminer 기본 대상 DB
 
 ### 3. `environments/*.psd1`

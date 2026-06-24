@@ -26,7 +26,7 @@ Examples:
 
 Use this file for local Docker Compose examples:
 
-- host ports
+- loopback-bound host ports
 - default Adminer target
 
 ### 3. `environments/*.psd1`

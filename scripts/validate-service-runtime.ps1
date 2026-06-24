@@ -67,6 +67,12 @@ foreach ($serviceName in $catalogMap.Keys) {
         }
     }
 
+    foreach ($portBinding in @($definition.ExposedPorts)) {
+        if ($portBinding -and $portBinding -notmatch '^127\.0\.0\.1:') {
+            $errors.Add("Runtime catalog for ${serviceName} should bind local compose ports to 127.0.0.1: $portBinding") | Out-Null
+        }
+    }
+
     foreach ($variableName in @($definition.RequiredEnvVars)) {
         if (-not $catalog.Variables.ContainsKey($variableName)) {
             $errors.Add("Runtime catalog for ${serviceName} references unknown variable: $variableName") | Out-Null

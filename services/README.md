@@ -53,6 +53,9 @@ Edit `config/service-runtime.env.example` to change:
 - local host ports
 - the default Adminer database target
 
+The compose files bind host ports to `127.0.0.1` so local examples are not
+published on every host interface by default.
+
 If you want a generated summary of the runtime variables and compose expectations:
 
 ```powershell

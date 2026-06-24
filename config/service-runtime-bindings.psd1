@@ -9,19 +9,19 @@
 
     Variables = @{
         "NGINX_WEB_HOST_PORT" = @{
-            Description = "Host port used by the local nginx-web compose example."
+            Description = "Loopback host port used by the local nginx-web compose example."
             Example = "8080"
         }
         "HTTPBIN_HOST_PORT" = @{
-            Description = "Host port used by the local httpbin compose example."
+            Description = "Loopback host port used by the local httpbin compose example."
             Example = "8081"
         }
         "WHOAMI_HOST_PORT" = @{
-            Description = "Host port used by the local whoami compose example."
+            Description = "Loopback host port used by the local whoami compose example."
             Example = "8082"
         }
         "ADMINER_HOST_PORT" = @{
-            Description = "Host port used by the local Adminer compose example."
+            Description = "Loopback host port used by the local Adminer compose example."
             Example = "8083"
         }
         "ADMINER_DEFAULT_SERVER" = @{
@@ -36,14 +36,14 @@
             ComposeServiceName = "adminer"
             PublicImage = "adminer:5.3.0-standalone"
             RequiredEnvVars = @("ADMINER_HOST_PORT", "ADMINER_DEFAULT_SERVER")
-            ExposedPorts = @('${ADMINER_HOST_PORT}:8080')
+            ExposedPorts = @('127.0.0.1:${ADMINER_HOST_PORT}:8080')
             VolumeBindings = @()
             ContainerName = ""
             RequiresHostGateway = $false
             RestartPolicy = "always"
             RequiredComposeStrings = @(
                 'image: adminer:5.3.0-standalone',
-                '${ADMINER_HOST_PORT:?ADMINER_HOST_PORT must be set}:8080',
+                '127.0.0.1:${ADMINER_HOST_PORT:?ADMINER_HOST_PORT must be set}:8080',
                 'ADMINER_DEFAULT_SERVER: ${ADMINER_DEFAULT_SERVER:?ADMINER_DEFAULT_SERVER must be set}',
                 'restart: always'
             )
@@ -54,14 +54,14 @@
             ComposeServiceName = "httpbin"
             PublicImage = "mccutchen/go-httpbin:v2.15.0"
             RequiredEnvVars = @("HTTPBIN_HOST_PORT")
-            ExposedPorts = @('${HTTPBIN_HOST_PORT}:8080')
+            ExposedPorts = @('127.0.0.1:${HTTPBIN_HOST_PORT}:8080')
             VolumeBindings = @()
             ContainerName = ""
             RequiresHostGateway = $false
             RestartPolicy = "always"
             RequiredComposeStrings = @(
                 'image: mccutchen/go-httpbin:v2.15.0',
-                '${HTTPBIN_HOST_PORT:?HTTPBIN_HOST_PORT must be set}:8080',
+                '127.0.0.1:${HTTPBIN_HOST_PORT:?HTTPBIN_HOST_PORT must be set}:8080',
                 'restart: always'
             )
             Notes = "Public HTTP endpoint used for request and ingress validation."
@@ -71,7 +71,7 @@
             ComposeServiceName = "nginx-web"
             PublicImage = "nginx:1.28-alpine"
             RequiredEnvVars = @("NGINX_WEB_HOST_PORT")
-            ExposedPorts = @('${NGINX_WEB_HOST_PORT}:80')
+            ExposedPorts = @('127.0.0.1:${NGINX_WEB_HOST_PORT}:80')
             VolumeBindings = @(
                 "./site -> /usr/share/nginx/html:ro"
             )
@@ -80,7 +80,7 @@
             RestartPolicy = "always"
             RequiredComposeStrings = @(
                 'image: nginx:1.28-alpine',
-                '${NGINX_WEB_HOST_PORT:?NGINX_WEB_HOST_PORT must be set}:80',
+                '127.0.0.1:${NGINX_WEB_HOST_PORT:?NGINX_WEB_HOST_PORT must be set}:80',
                 './site:/usr/share/nginx/html:ro',
                 'restart: always'
             )
@@ -91,14 +91,14 @@
             ComposeServiceName = "whoami"
             PublicImage = "traefik/whoami:v1.10.4"
             RequiredEnvVars = @("WHOAMI_HOST_PORT")
-            ExposedPorts = @('${WHOAMI_HOST_PORT}:80')
+            ExposedPorts = @('127.0.0.1:${WHOAMI_HOST_PORT}:80')
             VolumeBindings = @()
             ContainerName = ""
             RequiresHostGateway = $false
             RestartPolicy = "always"
             RequiredComposeStrings = @(
                 'image: traefik/whoami:v1.10.4',
-                '${WHOAMI_HOST_PORT:?WHOAMI_HOST_PORT must be set}:80',
+                '127.0.0.1:${WHOAMI_HOST_PORT:?WHOAMI_HOST_PORT must be set}:80',
                 'restart: always'
             )
             Notes = "Public whoami image that helps validate routing and request metadata."
