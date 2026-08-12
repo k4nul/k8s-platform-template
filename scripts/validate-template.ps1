@@ -297,6 +297,8 @@ try {
         -ValuesFile $publicValuesFile `
         -SchemaValidator $SchemaValidator `
         -FailOnHighSecurityBaselineFinding
+
+    & (Join-Path $root "tests\validate-workstation.Tests.ps1")
 }
 finally {
     if (Test-Path -LiteralPath $tempOutput) {

@@ -35,7 +35,7 @@ These warnings mean the template rendered far enough to reach optional validator
 
 ## Repository Validation Fails At Workstation Validation
 
-`invoke-repository-validation.ps1` runs `validate-workstation.ps1 -Strict` unless `-SkipWorkstationValidation` is passed. The default strict workstation profile requires `kubectl` and `helm`.
+`invoke-repository-validation.ps1` runs `validate-workstation.ps1 -Strict` unless `-SkipWorkstationValidation` is passed. The default strict workstation profile requires `helm` and one schema validator (`kubeconform` or `kubectl`). An explicit `-SchemaValidator` pin requires that exact validator.
 
 Use this command to see the missing tools directly:
 
@@ -73,8 +73,8 @@ the broader repository command:
 A passing template gate means public-default render validation, rendered schema
 validator wiring, and Kubernetes security baseline checks are healthy for the
 current phase. A failing repository workflow may still be a workstation
-readiness issue, because strict repository validation checks for tools such as
-`kubectl` and `helm`. Use
+readiness issue, because strict repository validation checks for `helm` and one
+accepted schema validator. Use
 `.\scripts\show-render-matrix.ps1 -Format markdown` to inspect which public
 environment and profile matrix entry would be rendered, then use
 `.\scripts\show-validation-readiness.ps1 -Profile web-platform -Applications nginx-web,httpbin,whoami -DataServices redis -Format markdown`

@@ -38,7 +38,7 @@
 
 `validate-template.ps1`은 필수 저장소 파일, 가벼운 PowerShell 테스트, 서비스 카탈로그와 공개 값, 공개 스모크 렌더링, 렌더링된 스모크 번들 검증을 실행한 뒤 `validate-render-matrix.ps1`을 호출합니다. 스모크와 매트릭스 렌더링 검증은 높은 심각도의 Kubernetes 보안 기준 findings가 있으면 실패합니다. 매트릭스는 모든 포함 환경 프리셋과 공개 프로필 모양을 `config/platform-values.env.example`로 검증하므로 렌더링 번들을 저장소에 남기지 않고 프로필, 프리셋, 기본값 drift를 확인할 수 있습니다. 렌더링 없이 범위만 검토하려면 `show-render-matrix.ps1 -Format markdown` 또는 `-Format json`을 사용합니다.
 
-`invoke-repository-validation.ps1`은 템플릿 게이트보다 넓습니다. 템플릿 검증, 엄격한 워크스테이션 검증, 선택 프리셋의 렌더링 번들 검증을 함께 실행합니다. 엄격한 워크스테이션 검증은 기본적으로 `kubectl`과 `helm`을 요구하므로, 현재 머신에서 막힌 검증이 무엇인지 먼저 보려면 `show-validation-readiness.ps1`을 사용하세요.
+`invoke-repository-validation.ps1`은 템플릿 게이트보다 넓습니다. 템플릿 검증, 엄격한 워크스테이션 검증, 선택 프리셋의 렌더링 번들 검증을 함께 실행합니다. 엄격한 워크스테이션 검증은 기본적으로 `helm`과 `kubeconform` 또는 `kubectl` 중 하나를 요구하며, `-SchemaValidator`를 지정하면 해당 도구를 정확히 요구합니다.
 
 ### 렌더링과 전달
 

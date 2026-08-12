@@ -43,7 +43,7 @@ Rendered manifest schema validation uses `kubeconform` when it is available and 
 
 The render matrix is assembled in `render-matrix-catalog.ps1` and covered by lightweight PowerShell tests. Non-strict rendered schema validation may skip the external schema tool when neither `kubeconform` nor `kubectl` is installed, but the structural preflight still runs; strict validation is expected to fail until one of those tools is available.
 
-`invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default required tools are `kubectl` and `helm`; use `show-validation-readiness.ps1` first when you need to understand which checks are blocked on the current machine and whether a blocked schema check needs one validator tool or a specific missing tool.
+`invoke-repository-validation.ps1` is broader than the template gate. It runs template validation, strict workstation validation, and rendered bundle validation for one preset. Strict workstation validation uses `validate-workstation.ps1 -Strict`, whose default requirements are `helm` plus `kubeconform` or `kubectl`; an explicit `-SchemaValidator` pin requires that exact tool.
 
 The completed phase transitions through `schema-security-baseline` and
 `public-default-security-review` used the template validation command, which

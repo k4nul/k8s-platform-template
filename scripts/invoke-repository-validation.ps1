@@ -189,7 +189,7 @@ if (-not $SkipTemplateValidation) {
 
 if (-not $SkipWorkstationValidation) {
     Invoke-RepositoryWorkflowStep -Title "Workstation validation" -Action {
-        & $workstationValidationScript -Strict
+        & $workstationValidationScript -SchemaValidator $SchemaValidator -Strict
     }
 }
 

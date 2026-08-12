@@ -1,7 +1,9 @@
 param(
-    [string[]]$RequiredTools = @("kubectl", "helm"),
-    [string[]]$OptionalTools = @("git", "docker", "python", "kubeconform"),
+    [string[]]$RequiredTools = @("helm"),
+    [string[]]$OptionalTools = @("git", "docker", "python", "kubeconform", "kubectl"),
     [string]$ProfileName = "platform validation",
+    [ValidateSet("auto", "kubeconform", "kubectl")]
+    [string]$SchemaValidator = "auto",
     [switch]$Strict
 )
 
@@ -90,9 +92,24 @@ foreach ($tool in ($requiredTools + $optionalTools)) {
 $report | Format-Table -AutoSize
 
 $missingRequired = $report | Where-Object { $_.Required -and -not $_.Installed }
+$installedTools = @($report | Where-Object { $_.Installed } | Select-Object -ExpandProperty Tool)
+$missingSchemaValidator = ""
 
-if ($missingRequired) {
-    $missingRequiredToolNames = (($missingRequired | Select-Object -ExpandProperty Tool) -join ", ")
+if ($SchemaValidator -eq "auto") {
+    if ($installedTools -notcontains "kubeconform" -and $installedTools -notcontains "kubectl") {
+        $missingSchemaValidator = "kubeconform or kubectl"
+    }
+}
+elseif ($installedTools -notcontains $SchemaValidator) {
+    $missingSchemaValidator = $SchemaValidator
+}
+
+if ($missingRequired -or $missingSchemaValidator) {
+    $missingRequirements = @($missingRequired | Select-Object -ExpandProperty Tool)
+    if ($missingSchemaValidator) {
+        $missingRequirements += $missingSchemaValidator
+    }
+    $missingRequiredToolNames = ($missingRequirements -join "; ")
     Write-Warning ("Missing required tools: {0}" -f $missingRequiredToolNames)
     if ($Strict) {
         throw ("Missing required workstation tools: {0}" -f $missingRequiredToolNames)
