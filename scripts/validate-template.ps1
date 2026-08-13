@@ -160,6 +160,8 @@ $expectedPaths = @(
     "scripts\repository-workflow-helpers.ps1",
     "scripts\validate-render-matrix.ps1",
     "scripts\validate-kubernetes-security-baseline.ps1",
+    "scripts\compare-rendered-environments.ps1",
+    "scripts\test-render-drift.ps1",
     "tests\validate-check-placeholders.Tests.ps1",
     "tests\validate-render-manifests.Tests.ps1",
     "tests\validate-rendered-bundle.Tests.ps1",
@@ -198,6 +200,7 @@ $serviceRuntimePlanTests = Join-Path $root "tests\show-service-runtime-plan.Test
 $serviceDependencyPlanTests = Join-Path $root "tests\show-service-dependency-plan.Tests.ps1"
 $platformPlanTests = Join-Path $root "tests\show-platform-plan.Tests.ps1"
 $validationReadinessTests = Join-Path $root "tests\show-validation-readiness.Tests.ps1"
+$renderDriftTests = Join-Path $root "scripts\test-render-drift.ps1"
 $renderedBundleValidation = Join-Path $root "scripts\validate-rendered-bundle.ps1"
 $securityBaselineValidation = Join-Path $root "scripts\validate-kubernetes-security-baseline.ps1"
 $phaseGatesManifest = Join-Path $root "docs\instructions\phase-gates.json"
@@ -244,6 +247,7 @@ foreach ($term in $securityBaselineTerms) {
 & $serviceDependencyPlanTests
 & $platformPlanTests
 & $validationReadinessTests
+& $renderDriftTests
 & $serviceCatalogValidation -RepoRoot $root
 & $serviceBuildValidation -RepoRoot $root
 & $serviceConfigValidation -RepoRoot $root -ValuesFile $publicValuesFile

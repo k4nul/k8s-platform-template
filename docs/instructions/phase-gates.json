@@ -146,6 +146,18 @@
       ]
     },
     {
+      "id": "environment-render-drift-detection-passes",
+      "status": "passed",
+      "required_for_transition": true,
+      "description": "Rendered environment comparison rejects unexpected resource inventory and security-sensitive field drift while allowing explicit field-scoped approvals.",
+      "evidence": [
+        "scripts/compare-rendered-environments.ps1",
+        "scripts/test-render-drift.ps1",
+        "pwsh -NoProfile -File scripts/test-render-drift.ps1"
+      ],
+      "on_failure": "Leave template maintenance and restore deterministic render drift validation."
+    },
+    {
       "id": "public-default-security-review-scope-selected",
       "status": "machine-check",
       "required_for_transition": true,

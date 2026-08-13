@@ -290,6 +290,27 @@ Readiness reports use the same model: if neither validator is installed, the
 missing requirement is `kubeconform or kubectl`; if either validator is
 installed, the rendered schema-validation requirement is satisfied.
 
+## Environment Render Drift
+
+Compare two rendered environment directories without cluster access:
+
+```powershell
+.\scripts\compare-rendered-environments.ps1 `
+  -BaselinePath out\baseline `
+  -CandidatePath out\candidate
+```
+
+The comparison fails on resource additions, removals, ordinary content drift,
+and changes to security-sensitive fields such as `securityContext`,
+`privileged`, service-account settings, resource limits, RBAC, NetworkPolicy,
+and images. An optional JSON approval file may allow exact
+`type`/`resource`/`fields` combinations with a review reason; unknown fields and
+stale approvals fail closed, and the schema has no credential-value field.
+
+Run `pwsh -NoProfile -File scripts/test-render-drift.ps1` for the clean,
+rejected, approved, addition, and removal fixtures. The aggregate
+`validate-template.ps1` command runs the same suite.
+
 ## Kubernetes Security Baseline
 
 `validate-template.ps1` runs `scripts/validate-kubernetes-security-baseline.ps1 -FailOnHighFinding` against the source tree so high-severity Kubernetes defaults cannot enter the public template unnoticed. It also makes the smoke rendered-bundle check and the full render matrix pass `-FailOnHighSecurityBaselineFinding` into `validate-platform-assets.ps1`, so high-severity rendered findings fail the template gate. The baseline is a review gate, not a replacement for cluster admission policy.
